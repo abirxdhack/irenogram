@@ -1,0 +1,9 @@
+include COPYING
+include COPYING.lesser
+include NOTICE
+include README.md
+include hatch_build.py
+include pyproject.toml
+include Makefile
+recursive-include pyrogram *.py *.tl
+recursive-include compiler *.py *.tl *.txt *.tsv

@@ -1,0 +1,119 @@
+{% extends "furo/page.html" %}
+
+{% block extrahead %}
+<link rel="canonical" href="https://abirxdhack.github.io/irenogram/{{ pagename }}.html">
+<link rel="prefetch" href="{{ pathto('_static/irenogram.png', 1) }}" as="image">
+
+<meta property="og:title" content="{{ title }} &mdash; Irenogram Documentation">
+<meta property="og:type" content="website">
+<meta property="og:image" content="{{ pathto('_static/open-graph.png', 1) }}">
+<meta property="og:url" content="https://abirxdhack.github.io/irenogram/{{ pagename }}.html">
+<meta property="og:description" content="Async Telegram MTProto API Framework for Python">
+<meta property="og:site_name" content="Irenogram">
+<meta property="og:locale" content="en_US">
+
+<meta name="description" content="Async Telegram MTProto API Framework for Python">
+<meta name="theme-color" content="#E04000">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "https://abirxdhack.github.io/irenogram/",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://abirxdhack.github.io/irenogram/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        }
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<ul class="breadcrumbs">
+    <li><a href="{{ pathto(master_doc) }}">Home</a> &raquo;</li>
+    <li>{{ title }}</li>
+</ul>
+
+<div class="top-bar">
+    <div class="view-on-github">
+        <a href="https://github.com/abirxdhack/irenogram" style="font-size: 20px;"><i class="fa-brands fa-github"></i> View on GitHub</a>
+    </div>
+    <div class="github-buttons">
+        <table class="github-button">
+            <tr>
+                <td><a href="https://github.com/abirxdhack/irenogram"><i class="fa fa-star"></i> Star</a></td>
+                <td><a href="https://github.com/abirxdhack/irenogram/stargazers"><span id="ire-stars-count">—</span></a></td>
+            </tr>
+        </table>
+        <table class="github-button">
+            <tr>
+                <td><a href="https://github.com/abirxdhack/irenogram/network/dependents"><i class="fa fa-code"></i> Used by</a></td>
+                <td><a href="https://github.com/abirxdhack/irenogram/network/dependents"><span id="ire-usedby-count">—</span></a></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="horizontal-line"></div>
+
+{{ super() }}
+{% endblock %}
+
+{% block footer %}
+<div class="related-pages">
+    {% if prev %}
+    <a class="prev-page" href="{{ prev.link }}">
+        <i class="fa-solid fa-chevron-left"></i>
+        <span class="ire-nav-label">{{ prev.title }}</span>
+    </a>
+    {% endif %}
+    {% if next %}
+    <a class="next-page" href="{{ next.link }}">
+        <span class="ire-nav-label">{{ next.title }}</span>
+        <i class="fa-solid fa-chevron-right"></i>
+    </a>
+    {% endif %}
+</div>
+<div class="bottom-of-page">
+    <div class="left-details">
+        <div class="footer">
+            <div class="copyright">
+                <div>
+                    <div class="left">
+                        <strong><a href="{{ pathto(master_doc) }}">Irenogram</a></strong>
+                        <i class="far fa-copyright"></i> Copyright 2025 &ndash;
+                        <script>document.write(new Date().getFullYear())</script>,
+                        <a href="https://github.com/abirxdhack"><i class="fas fa-cat"></i> Abir Arafat Chawdhury</a>
+                    </div>
+                    <div class="left">
+                        Released under the <a href="https://opensource.org/licenses/LGPL-3.0">GNU LGPL v3.0</a> license
+                    </div>
+                </div>
+            </div>
+            <div class="links">
+                <div class="right">
+                    <a href="https://github.com/abirxdhack/irenogram"><i class="fas fa-globe"></i></a>
+                    <a href="https://github.com/abirxdhack/irenogram"><i class="fab fa-github"></i></a>
+                    <a href="https://t.me/irenogram"><i class="fab fa-telegram-plane"></i></a>
+                    <a href="https://github.com/abirxdhack/irenogram/releases"><i class="fas fa-box"></i></a>
+                    <a href="https://pypi.org/project/irenogram"><i class="fab fa-python"></i></a>
+                </div>
+                <div class="right">
+                    <a href="https://t.me/irenogram">
+                        <i class="fas fa-hand-holding-heart"></i> Support Irenogram
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="right-details">
+        <div class="icons"></div>
+    </div>
+</div>
+{% endblock %}

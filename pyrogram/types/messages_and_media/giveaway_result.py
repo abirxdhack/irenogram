@@ -1,0 +1,123 @@
+
+import pyrogram
+
+from datetime import datetime
+from pyrogram import raw, types, utils
+from ..object import Object
+from typing import List, Union, Dict
+
+class GiveawayResult(Object):
+    """A giveaway result.
+
+
+    Parameters:
+        chat (:obj:`~pyrogram.types.Chat`, *optional*):
+            Channel which host the giveaway.
+
+        giveaway_message (:obj:`~pyrogram.types.Message`, *optional*):
+            The original giveaway message.
+
+        quantity (``int``):
+            Quantity of the giveaway prize.
+
+        unclaimed_quantity (``int``):
+            Quantity of unclaimed giveaway prize.
+
+        winners (List of :obj:`~pyrogram.types.User`, *optional*):
+            The giveaway winners.
+
+        months (``int``, *optional*):
+            How long the telegram premium last (in month).
+
+        stars (``int``, *optional*):
+            How many stars the giveaway winner(s) get.
+
+        expire_date (:py:obj:`~datetime.datetime`, *optional*):
+            Date the giveaway winner(s) choosen.
+
+        new_subscribers (``bool``, *optional*):
+            True, if the giveaway only for new subscribers.
+
+        is_refunded (``bool``, *optional*):
+            True, if the giveaway was refunded.
+
+        is_star_giveaway (``bool``, *optional*):
+            True, if the giveaway is a star giveaway.
+
+        is_winners_hidden (``bool``):
+            True, if the giveaway winners are hidden.
+    """
+
+    def __init__(
+        self,
+        *,
+        client: "pyrogram.Client" = None,
+        chat: "types.Chat" = None,
+        giveaway_message: "types.Message" = None,
+        quantity: int,
+        unclaimed_quantity: int,
+        winners: List["types.User"] = None,
+        months: int = None,
+        stars: int = None,
+        expire_date: datetime = None,
+        new_subscribers : bool = None,
+        is_refunded: bool = None,
+        is_star_giveaway: bool = None,
+        is_winners_hidden: bool
+    ):
+        super().__init__(client)
+
+        self.chat = chat
+        self.giveaway_message = giveaway_message
+        self.quantity = quantity
+        self.unclaimed_quantity = unclaimed_quantity
+        self.winners = winners
+        self.months = months
+        self.stars = stars
+        self.expire_date = expire_date
+        self.new_subscribers = new_subscribers
+        self.is_refunded = is_refunded
+        self.is_star_giveaway = is_star_giveaway
+        self.is_winners_hidden = is_winners_hidden
+
+    @staticmethod
+    async def _parse(
+        client,
+        giveaway_result: Union[
+            "raw.types.MessageActionGiveawayResults",
+            "raw.types.MessageMediaGiveawayResults"
+        ],
+        hide_winners: bool = False,
+        users: Dict[int, "raw.types.User"] = None,
+        chats: Dict[int, "raw.types.Chat"] = None
+    ) -> "GiveawayResult":
+        chat = None
+        giveaway_message = None
+        expired_date = None
+        winners = None
+        if not hide_winners:
+            chat_id = utils.get_channel_id(giveaway_result.channel_id)
+            chat = types.Chat._parse_channel_chat(client, chats.get(giveaway_result.channel_id))
+            giveaway_message = await client.get_messages(chat_id, giveaway_result.launch_msg_id)
+            expired_date = utils.timestamp_to_datetime(giveaway_result.until_date)
+            winners = []
+            for winner in giveaway_result.winners:
+                winners.append(types.User._parse(client, users.get(winner, None)))
+
+        stars = getattr(giveaway_result, "stars", None)
+
+        return GiveawayResult(
+            chat=chat,
+            giveaway_message=giveaway_message,
+            quantity=getattr(giveaway_result, "winners_count", None),
+            unclaimed_quantity=getattr(giveaway_result, "unclaimed_count", None),
+            winners=winners,
+            months=getattr(giveaway_result, "months", None),
+            stars=stars if isinstance(giveaway_result, raw.types.MessageMediaGiveawayResults) else None,
+            expire_date=expired_date,
+            new_subscribers=getattr(giveaway_result, "only_new_subscribers", None),
+            is_refunded=getattr(giveaway_result, "refunded", None),
+            is_star_giveaway=bool(stars),
+            is_winners_hidden=hide_winners,
+            client=client
+        )

@@ -1,0 +1,5 @@
+idle()
+======
+
+.. autofunction:: pyrogram.idle
+

@@ -1,0 +1,5 @@
+{title}
+{title_markup}
+
+.. {directive_type}:: {full_class_path}{directive_suffix}
+    :{directive_option}:

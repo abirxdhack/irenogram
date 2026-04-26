@@ -1,0 +1,15 @@
+
+import pyrogram
+from pyrogram import raw
+from .menu_button import MenuButton
+
+class MenuButtonDefault(MenuButton):
+    """Describes that no specific value for the menu button was set.
+    """
+
+    def __init__(self):
+        super().__init__("default")
+
+    async def write(self, client: "pyrogram.Client") -> "raw.types.BotMenuButtonDefault":
+        """Serialize this object into a raw Telegram TL representation."""
+        return raw.types.BotMenuButtonDefault()
