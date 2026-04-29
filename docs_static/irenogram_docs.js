@@ -1,116 +1,299 @@
 (function () {
     "use strict";
 
-    const PERFORMANCE_OBSERVER = {
-        start: performance.now(),
-        metrics: {}
+    const state = {
+        query: "",
+        requested: false,
+        decorated: false,
+        attempts: 0,
+        observer: null
     };
 
-    function recordMetric(name) {
-        PERFORMANCE_OBSERVER.metrics[name] = performance.now() - PERFORMANCE_OBSERVER.start;
+    function ready(fn) {
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", fn, { once: true });
+            return;
+        }
+
+        fn();
     }
 
     function isSearchPage() {
-        return !!document.getElementById("search-results")
-            || /\/search\/?(\?|$)/.test(window.location.pathname);
+        return Boolean(document.getElementById("search-results"))
+            || /\/search\/?(?:index\.html|search\.html)?(?:[?#]|$)/.test(window.location.pathname)
+            || /\/search\.html(?:[?#]|$)/.test(window.location.pathname);
     }
 
-    function applyStoredTheme() {
-        const stored = localStorage.getItem("theme");
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const theme = stored || (prefersDark ? "dark" : "light");
-        document.body.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
-        recordMetric("themeApplied");
-    }
-
-    function initThemeToggle() {
-        document.querySelectorAll(".theme-toggle").forEach(function (btn) {
-            btn.addEventListener("click", function (e) {
-                e.stopImmediatePropagation();
-                const current = document.body.getAttribute("data-theme") || "light";
-                const next = current === "light" ? "dark" : "light";
-                document.body.setAttribute("data-theme", next);
-                localStorage.setItem("theme", next);
-
-                const toggleBtn = e.target.closest(".theme-toggle");
-                if (toggleBtn) {
-                    toggleBtn.style.animation = "none";
-                    setTimeout(function () {
-                        toggleBtn.style.animation = "";
-                    }, 10);
-                }
-            }, true);
+    function safeHTML(value) {
+        return String(value || "").replace(/[&<>"']/g, function (char) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                "\"": "&quot;",
+                "'": "&#39;"
+            }[char];
         });
     }
 
-    function getQueryParam(name) {
-        try {
-            const params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, "?"));
-            return params.get(name) || "";
-        } catch (e) {
-            return "";
-        }
+    function cleanText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim();
     }
 
     function getDocRoot() {
         const meta = document.querySelector("meta[name='docs_url_root']");
-        if (meta && meta.content) return meta.content;
-        const html = document.documentElement;
-        return html.getAttribute("data-content_root") || "../";
+
+        if (meta && meta.content) {
+            return meta.content;
+        }
+
+        return document.documentElement.getAttribute("data-content_root") || "../";
     }
 
-    function categorizeResult(href) {
-        const url = (href || "").toLowerCase();
-        if (url.includes("/api/methods/")) return { label: "Method", cls: "ire-rs-method", icon: "fa-bolt" };
-        if (url.includes("/api/types/")) return { label: "Type", cls: "ire-rs-type", icon: "fa-cube" };
-        if (url.includes("/api/enums/")) return { label: "Enum", cls: "ire-rs-enum", icon: "fa-list" };
-        if (url.includes("/api/filters/")) return { label: "Filter", cls: "ire-rs-filter", icon: "fa-filter" };
-        if (url.includes("/api/handlers/")) return { label: "Handler", cls: "ire-rs-handler", icon: "fa-plug" };
-        if (url.includes("/api/decorators/")) return { label: "Decorator", cls: "ire-rs-deco", icon: "fa-at" };
-        if (url.includes("/api/errors/")) return { label: "Error", cls: "ire-rs-error", icon: "fa-triangle-exclamation" };
-        if (url.includes("/telegram/base/")) return { label: "Raw Base", cls: "ire-rs-raw", icon: "fa-layer-group" };
-        if (url.includes("/telegram/types/")) return { label: "Raw Type", cls: "ire-rs-raw", icon: "fa-layer-group" };
-        if (url.includes("/telegram/functions/")) return { label: "Raw Func", cls: "ire-rs-raw", icon: "fa-layer-group" };
-        if (url.includes("/start/")) return { label: "Guide", cls: "ire-rs-guide", icon: "fa-book-open" };
-        if (url.includes("/intro/")) return { label: "Intro", cls: "ire-rs-guide", icon: "fa-flag" };
-        if (url.includes("/faq")) return { label: "FAQ", cls: "ire-rs-guide", icon: "fa-circle-question" };
-        if (url.includes("/releases")) return { label: "Release", cls: "ire-rs-guide", icon: "fa-tag" };
+    function getSearchAction() {
+        const root = getDocRoot();
+
+        if (root.endsWith("/")) {
+            return root + "search/";
+        }
+
+        return root + "/search/";
+    }
+
+    function getQuery() {
+        const sources = [];
+
+        if (window.location.search) {
+            sources.push(window.location.search);
+        }
+
+        if (window.location.hash) {
+            sources.push(window.location.hash.replace(/^#\??/, "?"));
+        }
+
+        for (const source of sources) {
+            try {
+                const params = new URLSearchParams(source);
+                const value = params.get("q");
+
+                if (value && value.trim()) {
+                    return value.trim();
+                }
+            } catch (error) {}
+        }
+
+        const input = document.querySelector("input[name='q'], input[type='search'], #searchbox input");
+
+        if (input && input.value) {
+            return input.value.trim();
+        }
+
+        return "";
+    }
+
+    function applyStoredTheme() {
+        const stored = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const theme = stored || (prefersDark ? "dark" : "light");
+
+        document.body.setAttribute("data-theme", theme);
+        localStorage.setItem("theme", theme);
+    }
+
+    function initThemeToggle() {
+        document.querySelectorAll(".theme-toggle").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.stopImmediatePropagation();
+
+                const current = document.body.getAttribute("data-theme") || "light";
+                const next = current === "light" ? "dark" : "light";
+
+                document.body.setAttribute("data-theme", next);
+                localStorage.setItem("theme", next);
+
+                button.style.animation = "none";
+
+                setTimeout(function () {
+                    button.style.animation = "";
+                }, 10);
+            }, true);
+        });
+    }
+
+    function rewireSearchForms() {
+        document.querySelectorAll(".sidebar-search-container, #searchbox form, form.search, form[role='search']").forEach(function (form) {
+            if (!form || form.tagName !== "FORM") {
+                return;
+            }
+
+            form.setAttribute("method", "get");
+            form.setAttribute("action", getSearchAction());
+
+            const input = form.querySelector("input[type='search'], input[name='q'], input");
+
+            if (input) {
+                input.setAttribute("name", "q");
+            }
+        });
+    }
+
+    function categorizeResult(href, title, context) {
+        const text = [href, title, context].join(" ").toLowerCase();
+
+        if (text.includes("inlinekeyboard") || text.includes("keyboardbutton") || text.includes("replykeyboard")) {
+            return { label: "Keyboard", cls: "ire-rs-keyboard", icon: "fa-keyboard" };
+        }
+
+        if (text.includes("/api/methods/") || /\.[a-z_]+\(/i.test(title || "")) {
+            return { label: "Method", cls: "ire-rs-method", icon: "fa-bolt" };
+        }
+
+        if (text.includes("/api/types/") || text.includes("pyrogram.types")) {
+            return { label: "Type", cls: "ire-rs-type", icon: "fa-cube" };
+        }
+
+        if (text.includes("/api/enums/") || text.includes("pyrogram.enums")) {
+            return { label: "Enum", cls: "ire-rs-enum", icon: "fa-list" };
+        }
+
+        if (text.includes("/api/filters/") || text.includes("filter")) {
+            return { label: "Filter", cls: "ire-rs-filter", icon: "fa-filter" };
+        }
+
+        if (text.includes("/api/handlers/") || text.includes("handler")) {
+            return { label: "Handler", cls: "ire-rs-handler", icon: "fa-plug" };
+        }
+
+        if (text.includes("/api/decorators/") || text.includes("decorator")) {
+            return { label: "Decorator", cls: "ire-rs-deco", icon: "fa-at" };
+        }
+
+        if (text.includes("/api/errors/") || text.includes("error")) {
+            return { label: "Error", cls: "ire-rs-error", icon: "fa-triangle-exclamation" };
+        }
+
+        if (text.includes("/telegram/base/")) {
+            return { label: "Raw Base", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        }
+
+        if (text.includes("/telegram/types/")) {
+            return { label: "Raw Type", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        }
+
+        if (text.includes("/telegram/functions/")) {
+            return { label: "Raw Func", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        }
+
+        if (text.includes("/start/") || text.includes("/intro/") || text.includes("guide")) {
+            return { label: "Guide", cls: "ire-rs-guide", icon: "fa-book-open" };
+        }
+
+        if (text.includes("faq")) {
+            return { label: "FAQ", cls: "ire-rs-guide", icon: "fa-circle-question" };
+        }
+
+        if (text.includes("release")) {
+            return { label: "Release", cls: "ire-rs-guide", icon: "fa-tag" };
+        }
+
         return { label: "Page", cls: "ire-rs-page", icon: "fa-file-lines" };
     }
 
-    function highlightMatch(text, query) {
-        if (!text || !query) return text || "";
-        const tokens = query.split(/\s+/).filter(function (t) { return t.length > 1; });
-        if (!tokens.length) return text;
-        const escaped = tokens.map(function (t) {
-            return t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    function highlight(text, query) {
+        const safe = safeHTML(text);
+
+        if (!query) {
+            return safe;
+        }
+
+        const tokens = query
+            .split(/\s+/)
+            .map(function (token) {
+                return token.trim();
+            })
+            .filter(function (token) {
+                return token.length > 1;
+            });
+
+        if (!tokens.length) {
+            return safe;
+        }
+
+        const escaped = tokens.map(function (token) {
+            return token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         });
-        const re = new RegExp("(" + escaped.join("|") + ")", "ig");
-        return text.replace(re, '<mark class="ire-rs-mark">$1</mark>');
+
+        const pattern = new RegExp("(" + escaped.join("|") + ")", "ig");
+
+        return safe.replace(pattern, '<mark class="ire-rs-mark">$1</mark>');
     }
 
-    function buildSearchPageScaffold(query) {
-        const article = document.querySelector('article[role="main"]');
-        if (!article) return null;
+    function readablePath(href) {
+        let value = String(href || "documentation");
+
+        value = value.split("#")[0].split("?")[0];
+        value = value.replace(/^(\.\.\/)+/, "");
+        value = value.replace(/^\.\//, "");
+        value = value.replace(/index\.html$/, "");
+        value = value.replace(/\.html$/, "");
+        value = value.replace(/\/$/, "");
+        value = value.replace(/\//g, " / ");
+
+        return value || "documentation";
+    }
+
+    function splitTitle(title) {
+        const clean = cleanText(title).replace(/¶/g, "");
+        const parts = clean.split(/\s+[–—-]\s+/);
+
+        return {
+            main: parts[0] || clean,
+            detail: parts.slice(1).join(" — ")
+        };
+    }
+
+    function getMainArticle() {
+        return document.querySelector("article[role='main']")
+            || document.querySelector("#furo-main-content")
+            || document.querySelector("article")
+            || document.querySelector("main")
+            || document.body;
+    }
+
+    function buildSearchPage() {
+        const article = getMainArticle();
+
+        if (!article) {
+            return null;
+        }
 
         if (article.querySelector(".ire-search-page")) {
             return article.querySelector(".ire-search-page");
         }
 
+        let host = document.getElementById("search-results");
+
+        if (!host) {
+            host = document.createElement("div");
+            host.id = "search-results";
+        }
+
+        host.classList.add("ire-rs-host");
+
         const wrap = document.createElement("div");
         wrap.className = "ire-search-page";
+
         wrap.innerHTML =
             '<header class="ire-search-hero">' +
                 '<div class="ire-search-hero-inner">' +
                     '<div class="ire-search-badge"><i class="fa-solid fa-magnifying-glass"></i> Search</div>' +
                     '<h1 class="ire-search-title">Search the Irenogram docs</h1>' +
-                    '<p class="ire-search-sub">Find methods, types, enums, filters, handlers, raw API and guides.</p>' +
-                    '<form class="ire-search-form" method="get" action="">' +
+                    '<p class="ire-search-sub">Find methods, types, enums, filters, handlers, raw API objects and guides.</p>' +
+                    '<form class="ire-search-form" method="get" action="' + safeHTML(getSearchAction()) + '">' +
                         '<i class="fa-solid fa-magnifying-glass ire-search-form-icon"></i>' +
-                        '<input class="ire-search-input" type="search" name="q" autocomplete="off" spellcheck="false" placeholder="Try: send_message, InlineKeyboardButton, filters.text" />' +
-                        '<input type="hidden" name="check_keywords" value="yes" />' +
-                        '<input type="hidden" name="area" value="default" />' +
+                        '<input class="ire-search-input" type="search" name="q" autocomplete="off" spellcheck="false" placeholder="Try: send_message, InlineKeyboardButton, filters.text">' +
+                        '<input type="hidden" name="check_keywords" value="yes">' +
+                        '<input type="hidden" name="area" value="default">' +
                         '<button type="submit" class="ire-search-submit">Search</button>' +
                     '</form>' +
                     '<div class="ire-search-status" role="status" aria-live="polite"></div>' +
@@ -118,456 +301,451 @@
             '</header>' +
             '<section class="ire-search-results-wrap" aria-label="Search results"></section>';
 
-        const existing = document.getElementById("search-results");
-        if (existing) {
-            existing.classList.add("ire-rs-host");
-            wrap.querySelector(".ire-search-results-wrap").appendChild(existing);
-        } else {
-            const host = document.createElement("div");
-            host.id = "search-results";
-            host.classList.add("ire-rs-host");
-            wrap.querySelector(".ire-search-results-wrap").appendChild(host);
-        }
-
-        article.innerHTML = "";
-        article.appendChild(wrap);
+        wrap.querySelector(".ire-search-results-wrap").appendChild(host);
+        article.replaceChildren(wrap);
 
         const input = wrap.querySelector(".ire-search-input");
-        if (query) input.value = query;
+
+        if (state.query && input) {
+            input.value = state.query;
+        }
+
+        document.body.classList.add("ire-search-active");
 
         return wrap;
     }
 
-    function setSearchStatus(text, state) {
+    function setSearchStatus(text, mode) {
         const status = document.querySelector(".ire-search-status");
-        if (!status) return;
+
+        if (!status) {
+            return;
+        }
+
         status.textContent = text || "";
-        status.setAttribute("data-state", state || "");
+        status.setAttribute("data-state", mode || "");
     }
 
-    function decorateSearchResults(query) {
+    function decorateSearchResults() {
         const host = document.getElementById("search-results");
-        if (!host) return;
+
+        if (!host) {
+            return;
+        }
+
+        const text = cleanText(host.textContent).toLowerCase();
+
+        if (text.includes("searching") && !host.querySelector("ul")) {
+            host.classList.add("ire-rs-loading");
+            setSearchStatus("Searching for “" + state.query + "” …", "loading");
+            return;
+        }
+
+        host.classList.remove("ire-rs-loading");
 
         const list = host.querySelector("ul.search, ul");
-        if (!list) return;
+
+        if (!list) {
+            if (state.query && (text.includes("did not match") || text.includes("no results"))) {
+                host.classList.add("ire-rs-empty");
+                setSearchStatus("No results matched “" + state.query + "”. Try another keyword.", "empty");
+            }
+
+            return;
+        }
+
         list.classList.add("ire-rs-list");
+        host.classList.remove("ire-rs-empty");
 
-        list.querySelectorAll("li").forEach(function (li, idx) {
-            if (li.dataset.ireDecorated === "1") return;
-            li.dataset.ireDecorated = "1";
+        list.querySelectorAll("li").forEach(function (item, index) {
+            if (item.dataset.ireDecorated === "1") {
+                return;
+            }
 
-            const link = li.querySelector("a");
-            const ctx = li.querySelector(".context, p");
-            const href = link ? link.getAttribute("href") : "";
-            const cat = categorizeResult(href);
+            const link = item.querySelector("a");
+            const context = item.querySelector(".context, p");
+            const href = link ? link.getAttribute("href") || "#" : "#";
+            const rawTitle = link ? cleanText(link.textContent) : cleanText(item.textContent);
+            const rawContext = context ? cleanText(context.textContent) : "";
+            const title = splitTitle(rawTitle);
+            const category = categorizeResult(href, rawTitle, rawContext);
 
-            li.classList.add("ire-rs-item", cat.cls);
-            li.style.animationDelay = (Math.min(idx, 30) * 40) + "ms";
+            item.dataset.ireDecorated = "1";
+            item.classList.add("ire-rs-item", category.cls);
+            item.style.animationDelay = Math.min(index, 28) * 38 + "ms";
 
-            const titleHTML = link ? highlightMatch(link.textContent, query) : "";
-            const ctxHTML = ctx ? highlightMatch(ctx.textContent, query) : "";
-            const safeHref = href ? href : "#";
-
-            const card = document.createElement("div");
+            const card = document.createElement("article");
             card.className = "ire-rs-card";
+
             card.innerHTML =
                 '<div class="ire-rs-card-top">' +
-                    '<span class="ire-rs-tag"><i class="fa-solid ' + cat.icon + '"></i> ' + cat.label + '</span>' +
-                    '<span class="ire-rs-path" title="' + safeHref + '">' + safeHref + '</span>' +
+                    '<span class="ire-rs-tag"><i class="fa-solid ' + category.icon + '"></i> ' + safeHTML(category.label) + '</span>' +
+                    '<span class="ire-rs-path" title="' + safeHTML(href) + '">' + safeHTML(readablePath(href)) + '</span>' +
                 '</div>' +
-                '<a class="ire-rs-title" href="' + safeHref + '">' + titleHTML + '</a>' +
-                (ctxHTML ? '<p class="ire-rs-context">' + ctxHTML + '</p>' : "") +
+                '<a class="ire-rs-title" href="' + safeHTML(href) + '">' + highlight(title.main, state.query) + '</a>' +
+                '<div class="ire-rs-detail">' + safeHTML(title.detail || "Matched documentation entry") + '</div>' +
+                '<p class="ire-rs-context">' + highlight(rawContext || "Open this result in the generated Irenogram documentation.", state.query) + '</p>' +
                 '<div class="ire-rs-card-bottom"><span class="ire-rs-cta">Open <i class="fa-solid fa-arrow-right"></i></span></div>';
 
-            li.innerHTML = "";
-            li.appendChild(card);
+            item.replaceChildren(card);
+
+            item.addEventListener("click", function (event) {
+                if (event.target.closest("a")) {
+                    return;
+                }
+
+                window.location.href = href;
+            });
         });
 
         const total = list.querySelectorAll("li.ire-rs-item").length;
+
         if (total > 0) {
-            setSearchStatus(total + " result" + (total === 1 ? "" : "s") + " for \u201C" + query + "\u201D", "ok");
+            state.decorated = true;
+            document.body.classList.add("ire-search-has-results");
+            setSearchStatus(total + " result" + (total === 1 ? "" : "s") + " for “" + state.query + "”", "ok");
         }
     }
 
-    function observeSearchResults(query) {
+    function observeSearchResults() {
         const host = document.getElementById("search-results");
-        if (!host) return;
 
-        decorateSearchResults(query);
+        if (!host) {
+            return;
+        }
 
-        const mo = new MutationObserver(function () {
-            decorateSearchResults(query);
+        if (state.observer) {
+            state.observer.disconnect();
+        }
 
-            const summary = host.querySelector("p.search-summary, .search-summary");
-            if (summary) {
-                const text = summary.textContent.trim();
-                if (text) setSearchStatus(text, "ok");
-            }
-            if (host.textContent.toLowerCase().indexOf("did not match any documents") !== -1) {
-                setSearchStatus("No results matched \u201C" + query + "\u201D. Try different keywords.", "empty");
-            }
+        state.observer = new MutationObserver(function () {
+            window.requestAnimationFrame(decorateSearchResults);
         });
-        mo.observe(host, { childList: true, subtree: true, characterData: true });
+
+        state.observer.observe(host, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
     }
 
-    function runSphinxSearch(query) {
-        if (typeof window.Search === "undefined") return false;
+    function runSphinxSearch() {
+        if (!state.query) {
+            return true;
+        }
+
+        if (typeof window.Search === "undefined") {
+            return false;
+        }
+
         try {
             if (typeof window.Search.init === "function") {
                 window.Search.init();
             }
-            if (query && typeof window.Search.performSearch === "function") {
-                window.Search.performSearch(query);
+        } catch (error) {}
+
+        try {
+            if (typeof window.Search.performSearch === "function") {
+                window.Search.performSearch(state.query);
+                state.requested = true;
+                return true;
             }
-            return true;
-        } catch (e) {
-            return false;
+        } catch (error) {
+            window.__irenogramSearchError = error;
         }
+
+        return false;
     }
 
     function initSearchPage() {
-        if (!isSearchPage()) return;
+        if (!isSearchPage()) {
+            return;
+        }
 
-        const query = getQueryParam("q") || "";
-        buildSearchPageScaffold(query);
+        state.query = getQuery();
 
-        if (query) {
-            setSearchStatus("Searching for \u201C" + query + "\u201D \u2026", "loading");
+        buildSearchPage();
+        observeSearchResults();
+
+        if (state.query) {
+            setSearchStatus("Searching for “" + state.query + "” …", "loading");
         } else {
             setSearchStatus("Type a query and press Enter.", "idle");
         }
 
-        observeSearchResults(query);
+        const tick = function () {
+            state.attempts += 1;
 
-        let attempts = 0;
-        const maxAttempts = 60;
-        const timer = setInterval(function () {
-            attempts++;
-            const ok = runSphinxSearch(query);
-            const indexReady = window.Search && window.Search._index;
-            if ((ok && indexReady) || attempts >= maxAttempts) {
-                clearInterval(timer);
-                if (query && attempts >= maxAttempts && !indexReady) {
-                    setSearchStatus("Search index could not be loaded. Reload the page.", "error");
-                }
+            runSphinxSearch();
+            decorateSearchResults();
+
+            if (state.query && (!state.decorated || !state.requested) && state.attempts < 120) {
+                window.setTimeout(tick, 120);
+                return;
             }
-        }, 150);
+
+            if (state.query && state.attempts >= 120 && !state.decorated) {
+                setSearchStatus("Search index loaded slowly. Refresh once if results are missing.", "error");
+            }
+        };
+
+        tick();
 
         const form = document.querySelector(".ire-search-form");
+
         if (form) {
-            form.addEventListener("submit", function (e) {
+            form.addEventListener("submit", function (event) {
                 const input = form.querySelector(".ire-search-input");
-                const v = input && input.value.trim();
-                if (!v) {
-                    e.preventDefault();
-                    input && input.focus();
+                const value = input && input.value ? input.value.trim() : "";
+
+                if (!value) {
+                    event.preventDefault();
+
+                    if (input) {
+                        input.focus();
+                    }
                 }
             });
-        }
-
-        const sidebarForm = document.querySelector(".sidebar-search-container");
-        if (sidebarForm) {
-            sidebarForm.setAttribute("action", getDocRoot() + "search.html");
-        }
-    }
-
-    function rewireSidebarSearch() {
-        const sidebarForm = document.querySelector(".sidebar-search-container");
-        if (!sidebarForm) return;
-        const action = sidebarForm.getAttribute("action") || "";
-        if (action === "" || action === "#") {
-            sidebarForm.setAttribute("action", getDocRoot() + "search.html");
         }
     }
 
     function fetchGitHubCounters() {
-        const starsCountEl = document.getElementById("ire-stars-count");
-        const usedByCountEl = document.getElementById("ire-usedby-count");
+        const stars = document.getElementById("ire-stars-count");
+        const usedBy = document.getElementById("ire-usedby-count");
 
-        if (!starsCountEl && !usedByCountEl) return;
+        if (!stars && !usedBy) {
+            return;
+        }
 
         const cacheKey = "ire-github-cache";
         const cacheTime = localStorage.getItem(cacheKey + "-time");
         const now = Date.now();
 
-        if (cacheTime && now - parseInt(cacheTime) < 3600000) {
+        if (cacheTime && now - parseInt(cacheTime, 10) < 3600000) {
             try {
                 const cached = JSON.parse(localStorage.getItem(cacheKey));
-                if (cached && starsCountEl) {
-                    starsCountEl.textContent = cached.stars;
-                    starsCountEl.style.animation = "pulse 0.6s ease-out";
+
+                if (cached && stars) {
+                    stars.textContent = cached.stars;
                 }
-                if (cached && usedByCountEl) {
-                    usedByCountEl.textContent = cached.used;
-                    usedByCountEl.style.animation = "pulse 0.6s ease-out";
+
+                if (cached && usedBy) {
+                    usedBy.textContent = cached.used;
                 }
-                recordMetric("githubCountersCached");
+
                 return;
-            } catch (e) {}
+            } catch (error) {}
         }
 
         fetch("https://api.github.com/repos/abirxdhack/irenogram", {
-            headers: { "Accept": "application/vnd.github.v3+json" }
+            headers: { Accept: "application/vnd.github.v3+json" }
         })
-            .then(function (r) {
-                if (!r.ok) throw new Error("rate limited");
-                return r.json();
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("GitHub unavailable");
+                }
+
+                return response.json();
             })
             .then(function (data) {
-                const starsCount = data.stargazers_count ? data.stargazers_count.toLocaleString() : "\u2014";
-                const usedCount = data.network_count ? data.network_count.toLocaleString() : "\u2014";
+                const starCount = data.stargazers_count ? data.stargazers_count.toLocaleString() : "—";
+                const usedCount = data.network_count ? data.network_count.toLocaleString() : "—";
 
-                if (starsCountEl) {
-                    starsCountEl.textContent = starsCount;
-                    starsCountEl.style.animation = "slideInRight 0.5s ease-out";
-                }
-                if (usedByCountEl) {
-                    usedByCountEl.textContent = usedCount;
-                    usedByCountEl.style.animation = "slideInRight 0.5s ease-out";
+                if (stars) {
+                    stars.textContent = starCount;
                 }
 
-                localStorage.setItem(cacheKey, JSON.stringify({ stars: starsCount, used: usedCount }));
+                if (usedBy) {
+                    usedBy.textContent = usedCount;
+                }
+
+                localStorage.setItem(cacheKey, JSON.stringify({ stars: starCount, used: usedCount }));
                 localStorage.setItem(cacheKey + "-time", now.toString());
-                recordMetric("githubCountersFetched");
             })
             .catch(function () {
-                if (starsCountEl) starsCountEl.textContent = "\u2014";
-                if (usedByCountEl) usedByCountEl.textContent = "\u2014";
+                if (stars) {
+                    stars.textContent = "—";
+                }
+
+                if (usedBy) {
+                    usedBy.textContent = "—";
+                }
             });
     }
 
     function highlightCurrentNav() {
         const path = window.location.pathname;
+
         document.querySelectorAll(".sidebar-tree a.reference").forEach(function (link) {
             const href = link.getAttribute("href");
+
             if (href && path.endsWith(href.replace(/^\.\//, "").replace(/^\.\.\//, ""))) {
                 link.style.color = "var(--color-brand-content)";
                 link.style.fontWeight = "600";
-                link.style.animation = "slideInLeft 0.4s ease-out";
+
                 const parent = link.closest("li");
+
                 if (parent) {
                     parent.classList.add("current");
-                    parent.style.animation = "fadeInUp 0.4s ease-out";
                 }
             }
         });
-        recordMetric("navHighlighted");
     }
 
     function addCopyFeedback() {
-        document.addEventListener("click", function (e) {
-            const btn = e.target.closest(".copybtn");
-            if (btn) {
-                const originalText = btn.innerHTML;
-                const originalClass = btn.className;
+        document.addEventListener("click", function (event) {
+            const button = event.target.closest(".copybtn");
 
-                btn.innerHTML = "\u2713 Copied";
-                btn.classList.add("copied");
+            if (!button) {
+                return;
+            }
 
-                setTimeout(function () {
-                    btn.innerHTML = originalText;
-                    btn.className = originalClass;
-                }, 2000);
+            const html = button.innerHTML;
+            const className = button.className;
 
-                if (btn.closest(".highlight")) {
-                    const codeBlock = btn.closest(".highlight").querySelector("pre");
-                    if (codeBlock) {
-                        navigator.clipboard.writeText(codeBlock.textContent).catch(function () {});
-                    }
+            button.innerHTML = "✓ Copied";
+            button.classList.add("copied");
+
+            setTimeout(function () {
+                button.innerHTML = html;
+                button.className = className;
+            }, 2000);
+
+            const block = button.closest(".highlight");
+
+            if (block) {
+                const code = block.querySelector("pre");
+
+                if (code && navigator.clipboard) {
+                    navigator.clipboard.writeText(code.textContent).catch(function () {});
                 }
             }
         });
     }
 
     function initSmoothScroll() {
-        document.querySelectorAll('a[href^="#"]').forEach(function (a) {
-            a.addEventListener("click", function (e) {
-                const hash = this.getAttribute("href");
-                if (!hash || hash === "#") return;
-                const target = document.querySelector(hash);
-                if (target) {
-                    e.preventDefault();
-                    target.scrollIntoView({ behavior: "smooth", block: "start" });
-                    history.pushState(null, "", hash);
+        document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+            anchor.addEventListener("click", function (event) {
+                const hash = anchor.getAttribute("href");
 
-                    target.style.animation = "none";
-                    setTimeout(function () {
-                        target.style.animation = "glow 0.8s ease-out";
-                    }, 10);
+                if (!hash || hash === "#") {
+                    return;
                 }
+
+                const target = document.querySelector(hash);
+
+                if (!target) {
+                    return;
+                }
+
+                event.preventDefault();
+                target.scrollIntoView({ behavior: "smooth", block: "start" });
+                history.pushState(null, "", hash);
             });
         });
     }
 
     function initBackToTop() {
-        const btn = document.querySelector(".back-to-top");
-        if (!btn) return;
+        const button = document.querySelector(".back-to-top");
+
+        if (!button) {
+            return;
+        }
 
         let ticking = false;
 
         window.addEventListener("scroll", function () {
-            if (!ticking) {
-                requestAnimationFrame(function () {
-                    const visible = window.scrollY > 300;
-                    btn.style.opacity = visible ? "1" : "0";
-                    btn.style.pointerEvents = visible ? "auto" : "none";
-                    ticking = false;
-                });
-                ticking = true;
+            if (ticking) {
+                return;
             }
+
+            requestAnimationFrame(function () {
+                const visible = window.scrollY > 300;
+
+                button.style.opacity = visible ? "1" : "0";
+                button.style.pointerEvents = visible ? "auto" : "none";
+                ticking = false;
+            });
+
+            ticking = true;
         }, { passive: true });
 
-        btn.addEventListener("click", function (e) {
-            e.preventDefault();
+        button.addEventListener("click", function (event) {
+            event.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
         });
     }
 
-    function initTableEnhancements() {
-        document.querySelectorAll("table.docutils").forEach(function (table) {
-            table.style.animation = "fadeInUp 0.6s ease-out";
-            const rows = table.querySelectorAll("tbody tr");
-            rows.forEach(function (row, idx) {
-                row.style.animation = "fadeInUp " + (0.05 * (idx + 1)) + "s ease-out";
-            });
-        });
-    }
-
-    function initCodeBlockEnhancements() {
-        document.querySelectorAll(".highlight").forEach(function (block, idx) {
-            block.style.animation = "fadeInUp " + (0.1 * (idx + 1)) + "s ease-out";
-        });
-    }
-
-    function initIntersectionObserver() {
-        if (!("IntersectionObserver" in window)) return;
-        if (isSearchPage()) return;
-
-        const observerOptions = { threshold: 0.1, rootMargin: "0px 0px -50px 0px" };
-        const observer = new IntersectionObserver(function (entries) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting) {
-                    entry.target.style.animation = "fadeInUp 0.6s ease-out";
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, observerOptions);
-
-        document.querySelectorAll("article p, article ul, article ol").forEach(function (el) {
-            observer.observe(el);
-        });
-    }
-
-    function initLazyLoading() {
-        if (!("IntersectionObserver" in window)) return;
-        const lazyImages = document.querySelectorAll("img[data-src]");
-        const imageObserver = new IntersectionObserver(function (entries, observer) {
-            entries.forEach(function (entry) {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    img.src = img.getAttribute("data-src");
-                    img.removeAttribute("data-src");
-                    img.style.animation = "fadeInUp 0.4s ease-out";
-                    observer.unobserve(img);
-                }
-            });
-        });
-        lazyImages.forEach(function (img) { imageObserver.observe(img); });
-    }
-
     function initReadingProgress() {
-        const progressBar = document.createElement("div");
-        progressBar.className = "ire-reading-progress";
-        document.body.appendChild(progressBar);
-
-        window.addEventListener("scroll", function () {
-            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            const scrolled = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
-            progressBar.style.width = scrolled + "%";
-        }, { passive: true });
-    }
-
-    function initPreloadLinks() {
-        document.querySelectorAll("a[href]").forEach(function (link) {
-            const href = link.getAttribute("href");
-            if (href && href.startsWith("/") && !href.includes("javascript:")) {
-                link.addEventListener("mouseenter", function () {
-                    const preloadLink = document.createElement("link");
-                    preloadLink.rel = "prefetch";
-                    preloadLink.href = href;
-                    document.head.appendChild(preloadLink);
-                }, { once: true });
-            }
-        });
-    }
-
-    function initDarkModeTransition() {
-        const themeToggle = document.querySelector(".theme-toggle");
-        if (themeToggle) {
-            themeToggle.addEventListener("click", function () {
-                document.body.style.transition = "background-color 0.3s ease-out, color 0.3s ease-out";
-                setTimeout(function () { document.body.style.transition = ""; }, 300);
-            });
+        if (document.querySelector(".ire-reading-progress")) {
+            return;
         }
+
+        const progress = document.createElement("div");
+        progress.className = "ire-reading-progress";
+        document.body.appendChild(progress);
+
+        window.addEventListener("scroll", function () {
+            const height = document.documentElement.scrollHeight - window.innerHeight;
+            const percent = height > 0 ? window.scrollY / height * 100 : 0;
+
+            progress.style.width = percent + "%";
+        }, { passive: true });
     }
 
-    function initHeaderStickyBehavior() {
-        const header = document.querySelector("header");
-        if (!header) return;
-        let lastScrollY = 0;
-        window.addEventListener("scroll", function () {
-            const currentScrollY = window.scrollY;
-            header.classList.toggle("ire-header-shrunk", currentScrollY > 80);
-            lastScrollY = currentScrollY;
-        }, { passive: true });
+    function initAnimationHints() {
+        if (isSearchPage()) {
+            return;
+        }
+
+        document.querySelectorAll("table.docutils, .highlight").forEach(function (element, index) {
+            element.style.animation = "fadeInUp " + Math.min(0.6 + index * 0.03, 1.2) + "s ease-out";
+        });
     }
 
     function cleanupEnumDocumentation() {
-        if (isSearchPage()) return;
-        const article = document.querySelector('article[role="main"]');
-        if (!article) return;
+        if (isSearchPage()) {
+            return;
+        }
 
-        const dts = article.querySelectorAll('dl dt');
-        dts.forEach(function (dt) {
+        const article = document.querySelector("article[role='main']");
+
+        if (!article) {
+            return;
+        }
+
+        article.querySelectorAll("dl dt").forEach(function (dt) {
             const text = dt.textContent.trim();
-            if (text.includes('=') && text.includes('<class')) {
-                const nameMatch = text.match(/^([A-Z_]+)\s*=/);
-                if (nameMatch) {
-                    dt.textContent = nameMatch[1];
+
+            if (text.includes("=") && text.includes("<class")) {
+                const match = text.match(/^([A-Z_]+)\s*=/);
+
+                if (match) {
+                    dt.textContent = match[1];
                 }
             }
         });
 
-        const docinfos = article.querySelectorAll('div.docinfo, .field-list');
-        docinfos.forEach(function (el) {
-            if (el.textContent.includes('pyrogram.raw')) {
-                el.style.display = 'none';
+        article.querySelectorAll("div.docinfo, .field-list").forEach(function (element) {
+            if (element.textContent.includes("pyrogram.raw")) {
+                element.style.display = "none";
             }
         });
     }
 
     applyStoredTheme();
 
-    document.addEventListener("DOMContentLoaded", function () {
+    ready(function () {
         initThemeToggle();
-        rewireSidebarSearch();
+        rewireSearchForms();
         initSearchPage();
         fetchGitHubCounters();
         highlightCurrentNav();
         addCopyFeedback();
         initSmoothScroll();
         initBackToTop();
-        initTableEnhancements();
-        initCodeBlockEnhancements();
-        initIntersectionObserver();
-        initLazyLoading();
         initReadingProgress();
-        initPreloadLinks();
-        initDarkModeTransition();
-        initHeaderStickyBehavior();
+        initAnimationHints();
         cleanupEnumDocumentation();
-
-        recordMetric("domReady");
     });
 })();
