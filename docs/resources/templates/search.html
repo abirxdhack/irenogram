@@ -4,6 +4,18 @@
 <title>Search — {{ docstitle }}</title>
 {%- endblock htmltitle -%}
 
+{%- block extrahead -%}
+{{ super() }}
+<link rel="canonical" href="https://abirxdhack.github.io/irenogram/search/">
+<meta name="description" content="Search the Irenogram documentation for methods, types, enums, filters, handlers, raw API objects and guides.">
+<meta property="og:title" content="Search — Irenogram Documentation">
+<meta property="og:type" content="website">
+<meta property="og:image" content="{{ pathto('_static/open-graph.png', 1) }}">
+<meta property="og:url" content="https://abirxdhack.github.io/irenogram/search/">
+<meta property="og:description" content="Search the Irenogram documentation.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+{%- endblock extrahead -%}
+
 {%- block content -%}
 <article role="main" id="furo-main-content">
     <noscript>
@@ -20,22 +32,47 @@
 {{ super() }}
 <script>
 (function () {
-    function tryRun() {
-        if (typeof Search === "undefined") return false;
+    "use strict";
+
+    function readQuery() {
         try {
-            var params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, "?"));
-            var q = params.get("q") || "";
-            if (typeof Search.init === "function") { Search.init(); }
-            if (q && typeof Search.performSearch === "function") {
-                Search.performSearch(q);
-            }
-            return true;
-        } catch (e) { return false; }
+            var params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#\??/, "?"));
+            return params.get("q") || "";
+        } catch (error) {
+            return "";
+        }
     }
+
+    function tryRun() {
+        if (typeof Search === "undefined") {
+            return false;
+        }
+
+        var query = readQuery();
+
+        try {
+            if (typeof Search.init === "function") {
+                Search.init();
+            }
+
+            if (query && typeof Search.performSearch === "function") {
+                Search.performSearch(query);
+            }
+
+            return true;
+        } catch (error) {
+            window.__irenogramTemplateSearchError = error;
+            return false;
+        }
+    }
+
     var attempts = 0;
-    var t = setInterval(function () {
-        attempts++;
-        if (tryRun() || attempts > 80) { clearInterval(t); }
+    var timer = setInterval(function () {
+        attempts += 1;
+
+        if (tryRun() || attempts > 100) {
+            clearInterval(timer);
+        }
     }, 120);
 })();
 </script>
