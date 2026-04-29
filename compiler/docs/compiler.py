@@ -23,6 +23,7 @@ INTERNAL_METHODS = {
     "decorator", "do_it", "get_chunk", "get_session", "make_input",
     "signal_handler", "worker", "count_populated_attributes", "callback",
     "check", "delete_waiter", "init", "markdown", "html", "link", "content",
+    "md_text", "html_text",
     "forward_from", "forward_sender_name", "forward_from_chat",
     "forward_from_message_id", "forward_signature", "forward_date",
     "write", "read", "default", "full_name", "mention", "format",
@@ -378,12 +379,18 @@ def _write_method_rst(root, actual_method_name):
 
 
 def _write_type_rst(root, type_name):
+    # Build combined exclusion list: internal implementation details +
+    # bound methods that have their own dedicated documentation pages.
+    excluded = sorted(INTERNAL_METHODS | BOUND_METHODS)
+    exclude_str = ", ".join(excluded)
+
     with open(os.path.join(root, "{}.rst".format(type_name)), "w", encoding="utf-8") as f2:
         title = "{}".format(type_name)
         f2.write(title + "\n" + "=" * len(title) + "\n\n")
         f2.write(".. autoclass:: pyrogram.types.{}()\n".format(type_name))
         f2.write("    :members:\n")
         f2.write("    :show-inheritance:\n")
+        f2.write("    :exclude-members: {}\n".format(exclude_str))
         f2.write("\n")
 
 
