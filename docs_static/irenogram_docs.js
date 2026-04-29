@@ -59,113 +59,401 @@
         typeNext();
     }
 
-    function createSearchIndex() {
-        const index = {};
-        const contentElements = document.querySelectorAll("h1, h2, h3, p, dt");
+    /* ═══════════════════════════════════════════════
+       IRENOGRAM LIVE SEARCH  –  full rewrite
+       Sources  : sidebar nav tree  (all pages)
+                  current-page headings + dt members
+       Features : debounced fuzzy match, score ranking,
+                  categorised results, text highlight,
+                  keyboard nav, sessionStorage cache,
+                  dark-mode, accessible
+       ═══════════════════════════════════════════════ */
 
-        contentElements.forEach((el, idx) => {
-            const text = el.textContent.toLowerCase();
-            const words = text.split(/\s+/).filter(w => w.length > 2);
-            const id = el.id || `content-${idx}`;
+    /* ── helpers ───────────────────────────────────── */
 
-            words.forEach(word => {
-                if (!index[word]) {
-                    index[word] = [];
-                }
-                if (!index[word].find(item => item.id === id)) {
-                    index[word].push({
-                        id,
-                        text: el.textContent.substring(0, 100),
-                        element: el,
-                        type: el.tagName.toLowerCase(),
-                        relevance: el.tagName === "H1" ? 10 : el.tagName === "H2" ? 7 : 5
-                    });
-                }
-            });
-        });
-
-        return index;
+    function escapeRe(s) {
+        return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
-    function fuzzySearch(query, index) {
-        if (!query || query.length < 2) return [];
-
-        const results = [];
-        const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-        const seen = new Set();
-
-        queryWords.forEach(word => {
-            Object.keys(index).forEach(indexWord => {
-                if (indexWord.includes(word) || word.includes(indexWord.substring(0, 3))) {
-                    index[indexWord].forEach(item => {
-                        if (!seen.has(item.id)) {
-                            results.push({
-                                ...item,
-                                score: word === indexWord ? item.relevance * 2 : item.relevance
-                            });
-                            seen.add(item.id);
-                        }
-                    });
-                }
-            });
-        });
-
-        return results.sort((a, b) => b.score - a.score).slice(0, 8);
+    function highlight(text, query) {
+        if (!query) return escapeHtml(text);
+        const re = new RegExp("(" + escapeRe(query) + ")", "gi");
+        return escapeHtml(text).replace(
+            new RegExp("(" + escapeRe(escapeHtml(query)) + ")", "gi"),
+            '<mark class="ire-hl">$1</mark>'
+        );
     }
 
-    let searchIndex = null;
+    function escapeHtml(s) {
+        return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
 
-    function initGlobalSearch() {
-        const searchInput = document.getElementById("globalSearch") || 
-                           document.querySelector(".search-input");
-        const searchResults = document.getElementById("searchResults") || 
-                             document.querySelector(".search-results-dropdown");
+    function debounce(fn, ms) {
+        let t;
+        return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
+    }
 
-        if (!searchInput) return;
+    /* ── tag pills ─────────────────────────────────── */
 
-        if (!searchIndex) {
-            searchIndex = createSearchIndex();
+    const TAG_META = {
+        method:   { label: "Method",  cls: "tag-method"  },
+        type:     { label: "Type",    cls: "tag-type"    },
+        enum:     { label: "Enum",    cls: "tag-enum"    },
+        page:     { label: "Page",    cls: "tag-page"    },
+        section:  { label: "Section", cls: "tag-section" },
+        member:   { label: "Member",  cls: "tag-member"  },
+    };
+
+    function classifyUrl(url) {
+        if (/\/api\/methods\//.test(url))      return "method";
+        if (/\/api\/types\//.test(url))        return "type";
+        if (/\/api\/enums\//.test(url))        return "enum";
+        if (/\/api\/bound-methods\//.test(url)) return "method";
+        return "page";
+    }
+
+    function tagPill(kind) {
+        const m = TAG_META[kind] || TAG_META.page;
+        return `<span class="ire-tag ${m.cls}">${m.label}</span>`;
+    }
+
+    /* ── index builders ─────────────────────────────── */
+
+    // Nav-tree index: one entry per sidebar link  (cross-page)
+    function buildNavIndex() {
+        const CACHE_KEY = "ire-nav-index-v2";
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+            try { return JSON.parse(cached); } catch (_) {}
         }
 
-        searchInput.addEventListener("input", function (e) {
-            const query = e.target.value;
+        const entries = [];
+        document.querySelectorAll(".sidebar-tree a.reference").forEach(a => {
+            const title = a.textContent.trim();
+            const url   = a.getAttribute("href");
+            if (!title || !url || url.startsWith("http")) return;
+            entries.push({
+                title,
+                url,
+                kind: classifyUrl(url),
+                searchText: title.toLowerCase(),
+            });
+        });
 
-            if (searchResults) {
-                if (query.length < 2) {
-                    searchResults.innerHTML = "";
-                    searchResults.style.display = "none";
-                    return;
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(entries));
+        return entries;
+    }
+
+    // In-page index: headings + API member dt elements
+    function buildPageIndex() {
+        const entries = [];
+        const base    = window.location.pathname;
+
+        document.querySelectorAll("article h1, article h2, article h3").forEach(h => {
+            const id    = h.id || h.querySelector("[id]")?.id;
+            const title = h.textContent.trim().replace(/¶$/, "");
+            if (!title) return;
+            entries.push({
+                title,
+                url:        base + (id ? "#" + id : ""),
+                kind:       "section",
+                searchText: title.toLowerCase(),
+            });
+        });
+
+        document.querySelectorAll("article dt[id]").forEach(dt => {
+            const id    = dt.id;
+            const title = dt.querySelector(".sig-name")?.textContent.trim()
+                       || dt.textContent.trim().replace(/¶$/, "").split("(")[0].trim();
+            if (!title || title.length > 80) return;
+            entries.push({
+                title,
+                url:        base + "#" + id,
+                kind:       "member",
+                searchText: title.toLowerCase(),
+            });
+        });
+
+        return entries;
+    }
+
+    /* ── scoring + search ───────────────────────────── */
+
+    function scoreEntry(entry, q) {
+        const s = entry.searchText;
+        const ql = q.toLowerCase();
+        if (s === ql)             return 100;
+        if (s.startsWith(ql))    return 80;
+        if (s.includes(ql))      return 60;
+        // word-boundary partial
+        const words = s.split(/[\s._-]+/);
+        if (words.some(w => w.startsWith(ql))) return 40;
+        if (words.some(w => w.includes(ql)))   return 20;
+        return 0;
+    }
+
+    function runSearch(q, navIndex, pageIndex) {
+        const ql = q.toLowerCase().trim();
+        if (ql.length < 2) return { page: [], nav: [] };
+
+        function rank(list) {
+            return list
+                .map(e => ({ entry: e, score: scoreEntry(e, ql) }))
+                .filter(x => x.score > 0)
+                .sort((a, b) => b.score - a.score);
+        }
+
+        const pageRanked = rank(pageIndex);
+        const navRanked  = rank(navIndex);
+
+        // De-duplicate nav vs page by url
+        const pagePaths = new Set(pageRanked.map(x => x.entry.url));
+        const navFiltered = navRanked.filter(x => !pagePaths.has(x.entry.url));
+
+        return {
+            page: pageRanked.slice(0, 4).map(x => x.entry),
+            nav:  navFiltered.slice(0, 6).map(x => x.entry),
+            total: pageRanked.length + navFiltered.length,
+        };
+    }
+
+    /* ── dropdown DOM ───────────────────────────────── */
+
+    function buildDropdown() {
+        const el = document.createElement("div");
+        el.className    = "ire-search-dropdown";
+        el.id           = "ireSearchDropdown";
+        el.setAttribute("role", "listbox");
+        el.setAttribute("aria-label", "Search results");
+        el.style.display = "none";
+        return el;
+    }
+
+    function renderEntry(entry, q, idx) {
+        const div = document.createElement("div");
+        div.className = "ire-result-item";
+        div.setAttribute("role", "option");
+        div.setAttribute("data-idx", idx);
+        div.setAttribute("data-url", entry.url);
+        div.tabIndex = -1;
+
+        div.innerHTML = `
+            <div class="ire-result-row">
+                <span class="ire-result-title">${highlight(entry.title, q)}</span>
+                ${tagPill(entry.kind)}
+            </div>`;
+
+        return div;
+    }
+
+    function renderDropdown(dropdown, results, q, searchRoot) {
+        dropdown.innerHTML = "";
+
+        const { page, nav, total } = results;
+        const hasResults = page.length + nav.length > 0;
+
+        if (!hasResults) {
+            dropdown.innerHTML = `
+                <div class="ire-no-results">
+                    <span class="ire-no-results-icon">⌕</span>
+                    <span>No results for <strong>${escapeHtml(q)}</strong></span>
+                </div>`;
+            showDropdown(dropdown);
+            return;
+        }
+
+        let idx = 0;
+
+        if (page.length) {
+            const sec = document.createElement("div");
+            sec.className = "ire-section-header";
+            sec.textContent = "On this page";
+            dropdown.appendChild(sec);
+            page.forEach(e => dropdown.appendChild(renderEntry(e, q, idx++)));
+        }
+
+        if (nav.length) {
+            const sec = document.createElement("div");
+            sec.className = "ire-section-header";
+            sec.textContent = "Documentation";
+            dropdown.appendChild(sec);
+            nav.forEach(e => dropdown.appendChild(renderEntry(e, q, idx++)));
+        }
+
+        // Footer "see all"
+        const searchHref = buildSearchUrl(q);
+        const footer = document.createElement("a");
+        footer.className = "ire-search-footer";
+        footer.href      = searchHref;
+        footer.innerHTML = `<span>See all results for <strong>${escapeHtml(q)}</strong></span><span class="ire-footer-arrow">→</span>`;
+        dropdown.appendChild(footer);
+
+        showDropdown(dropdown);
+    }
+
+    function buildSearchUrl(q) {
+        // walk up from sidebar form to figure out search path
+        const form = document.querySelector(".sidebar-search-container");
+        const action = form ? form.getAttribute("action") : "/search/";
+        return `${action}?q=${encodeURIComponent(q)}&check_keywords=yes&area=default`;
+    }
+
+    function showDropdown(dropdown) {
+        dropdown.style.display = "block";
+        dropdown.classList.remove("ire-dropdown-exit");
+        dropdown.classList.add("ire-dropdown-enter");
+    }
+
+    function hideDropdown(dropdown) {
+        if (dropdown.style.display === "none") return;
+        dropdown.classList.remove("ire-dropdown-enter");
+        dropdown.classList.add("ire-dropdown-exit");
+        setTimeout(() => {
+            dropdown.style.display = "none";
+            dropdown.classList.remove("ire-dropdown-exit");
+        }, 180);
+    }
+
+    /* ── keyboard navigation ────────────────────────── */
+
+    function setupKeyboard(input, dropdown) {
+        let active = -1;
+
+        function items() {
+            return Array.from(dropdown.querySelectorAll(".ire-result-item, .ire-search-footer"));
+        }
+
+        function activate(i) {
+            const els = items();
+            els.forEach(el => el.classList.remove("ire-active"));
+            active = Math.max(-1, Math.min(i, els.length - 1));
+            if (active >= 0) {
+                els[active].classList.add("ire-active");
+                els[active].scrollIntoView({ block: "nearest" });
+            }
+        }
+
+        input.addEventListener("keydown", e => {
+            if (dropdown.style.display === "none") return;
+
+            switch (e.key) {
+                case "ArrowDown":
+                    e.preventDefault();
+                    activate(active + 1);
+                    break;
+                case "ArrowUp":
+                    e.preventDefault();
+                    activate(active - 1);
+                    break;
+                case "Enter":
+                    e.preventDefault();
+                    if (active >= 0) {
+                        const el = items()[active];
+                        const url = el.dataset.url || el.getAttribute("href");
+                        if (url) window.location.href = url;
+                    } else {
+                        // submit to full search
+                        const form = document.querySelector(".sidebar-search-container");
+                        if (form) form.submit();
+                    }
+                    break;
+                case "Escape":
+                    e.preventDefault();
+                    hideDropdown(dropdown);
+                    input.blur();
+                    active = -1;
+                    break;
+            }
+        });
+
+        // reset active on new render
+        dropdown.addEventListener("mouseenter", () => {
+            items().forEach(el => el.classList.remove("ire-active"));
+            active = -1;
+        });
+
+        return { reset: () => { active = -1; } };
+    }
+
+    /* ── click navigation on items ──────────────────── */
+
+    function setupItemClicks(dropdown, input) {
+        dropdown.addEventListener("click", e => {
+            const item = e.target.closest(".ire-result-item");
+            if (item) {
+                const url = item.dataset.url;
+                if (url) {
+                    input.value = "";
+                    hideDropdown(dropdown);
+                    window.location.href = url;
                 }
+            }
+        });
+    }
 
-                const results = fuzzySearch(query, searchIndex);
+    /* ── main init ──────────────────────────────────── */
 
-                if (results.length === 0) {
-                    searchResults.innerHTML = '<div style="padding: 12px; text-align: center; color: #999;">No results found</div>';
-                } else {
-                    searchResults.innerHTML = results.map((result, idx) => `
-                        <div class="search-result-item" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; animation: fadeInUp ${0.1 * (idx + 1)}s ease-out;" onclick="document.getElementById('globalSearch').value = ''; this.closest('.search-results-dropdown').style.display = 'none'; document.querySelector('[id=\\"${result.id}\\"]')?.scrollIntoView({behavior: 'smooth', block: 'start'});">
-                            <div style="font-weight: 600; font-size: 0.9em; color: #E04000;">${result.type.toUpperCase()}</div>
-                            <div style="margin-top: 4px; font-size: 0.85em; color: #666;">${result.text}...</div>
-                        </div>
-                    `).join("");
+    function initGlobalSearch() {
+        const input = document.querySelector(".sidebar-search");
+        if (!input) return;
+
+        // Prevent default form submit when dropdown is open (let Enter handler take over)
+        const form = input.closest("form");
+
+        // Build dropdown
+        const wrapper = document.createElement("div");
+        wrapper.className = "ire-search-wrapper";
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+
+        const dropdown = buildDropdown();
+        wrapper.appendChild(dropdown);
+
+        // Build indices
+        const navIndex  = buildNavIndex();
+        const pageIndex = buildPageIndex();
+
+        const { reset: kbReset } = setupKeyboard(input, dropdown);
+        setupItemClicks(dropdown, input);
+
+        // Live search on input
+        const doSearch = debounce((q) => {
+            if (q.length < 2) { hideDropdown(dropdown); return; }
+            const results = runSearch(q, navIndex, pageIndex);
+            renderDropdown(dropdown, results, q, wrapper);
+            kbReset();
+        }, 130);
+
+        input.addEventListener("input", e => doSearch(e.target.value.trim()));
+
+        // Show on focus if query already present
+        input.addEventListener("focus", () => {
+            if (input.value.trim().length >= 2) {
+                doSearch(input.value.trim());
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener("click", e => {
+            if (!wrapper.contains(e.target)) {
+                hideDropdown(dropdown);
+            }
+        }, true);
+
+        // Prevent form submit if dropdown is showing
+        if (form) {
+            form.addEventListener("submit", e => {
+                if (dropdown.style.display !== "none") {
+                    e.preventDefault();
+                    // navigate to full search instead
+                    window.location.href = buildSearchUrl(input.value.trim());
                 }
-
-                searchResults.style.display = "block";
-                searchResults.style.animation = "fadeInUp 0.3s ease-out";
-            }
-        });
-
-        document.addEventListener("click", function (e) {
-            if (searchResults && !searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                searchResults.style.display = "none";
-            }
-        });
-
-        searchInput.addEventListener("focus", function () {
-            if (this.value.length > 1 && searchResults) {
-                searchResults.style.display = "block";
-            }
-        });
+            });
+        }
     }
 
     function fetchGitHubCounters() {
