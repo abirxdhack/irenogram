@@ -1,79 +1,49 @@
 {% extends "furo/search.html" %}
 
-{%- block htmltitle -%}
-<title>Search — {{ docstitle }}</title>
-{%- endblock htmltitle -%}
-
-{%- block extrahead -%}
-{{ super() }}
-<link rel="canonical" href="https://abirxdhack.github.io/irenogram/search/">
-<meta name="description" content="Search the Irenogram documentation for methods, types, enums, filters, handlers, raw API objects and guides.">
-<meta property="og:title" content="Search — Irenogram Documentation">
-<meta property="og:type" content="website">
-<meta property="og:image" content="{{ pathto('_static/open-graph.png', 1) }}">
-<meta property="og:url" content="https://abirxdhack.github.io/irenogram/search/">
-<meta property="og:description" content="Search the Irenogram documentation.">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-{%- endblock extrahead -%}
-
-{%- block content -%}
-<article role="main" id="furo-main-content">
-    <noscript>
-        <div class="admonition error">
-            <p class="admonition-title">JavaScript required</p>
-            <p>Please enable JavaScript to use the documentation search.</p>
-        </div>
-    </noscript>
-    <div id="search-results"></div>
-</article>
-{%- endblock content -%}
+{% block extrahead %}
+    {{ super() }}
+    <meta name="description" content="Search the Irenogram documentation — methods, types, enums, handlers, filters and raw API." />
+    <meta name="robots" content="noindex,follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Search — Irenogram Docs" />
+    <meta property="og:description" content="Rich, fast search across the Irenogram Python library documentation." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Search — Irenogram Docs" />
+    <meta name="twitter:description" content="Rich, fast search across the Irenogram Python library documentation." />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+{% endblock %}
 
 {% block scripts %}
-{{ super() }}
-<script>
-(function () {
-    "use strict";
-
-    function readQuery() {
-        try {
-            var params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#\??/, "?"));
-            return params.get("q") || "";
-        } catch (error) {
-            return "";
-        }
-    }
-
-    function tryRun() {
-        if (typeof Search === "undefined") {
-            return false;
-        }
-
-        var query = readQuery();
-
-        try {
-            if (typeof Search.init === "function") {
-                Search.init();
+    {{ super() }}
+    <script>
+        (function () {
+            "use strict";
+            function getQ() {
+                var src = (window.location.hash || "").replace(/^#\??/, "") ||
+                          (window.location.search || "").replace(/^\?/, "");
+                return (new URLSearchParams(src).get("q") || "").trim();
             }
-
-            if (query && typeof Search.performSearch === "function") {
-                Search.performSearch(query);
+            function tryRun() {
+                var q = getQ();
+                if (!q) return false;
+                if (window.Search && typeof window.Search.performSearch === "function") {
+                    try { if (typeof window.Search.init === "function") window.Search.init(); } catch (e) {}
+                    try { window.Search.performSearch(q); return true; } catch (e) {}
+                }
+                return false;
             }
-
-            return true;
-        } catch (error) {
-            window.__irenogramTemplateSearchError = error;
-            return false;
-        }
-    }
-
-    var attempts = 0;
-    var timer = setInterval(function () {
-        attempts += 1;
-
-        if (tryRun() || attempts > 100) {
-            clearInterval(timer);
-        }
-    }, 120);
-})();
-</script>
+            var attempts = 0;
+            var iv = setInterval(function () {
+                attempts++;
+                if (tryRun() || attempts > 120) clearInterval(iv);
+            }, 100);
+            window.addEventListener("hashchange", function () {
+                attempts = 0;
+                var iv2 = setInterval(function () {
+                    attempts++;
+                    if (tryRun() || attempts > 120) clearInterval(iv2);
+                }, 100);
+            });
+        })();
+    </script>
 {% endblock %}
