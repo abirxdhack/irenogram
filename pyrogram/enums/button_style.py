@@ -1,4 +1,3 @@
-
 from enum import auto
 from .auto_name import AutoName
 
@@ -7,15 +6,16 @@ class ButtonStyle(AutoName):
 
     Maps to ``KeyboardButtonStyle`` in the MTProto layer and ``ButtonStyle``
     in TDLib's ``td_api.tl``.
-
-    Attributes:
-        DEFAULT: No special colour (theme default).
-        PRIMARY: Dark-blue / accent colour.
-        DANGER:  Red (destructive actions).
-        SUCCESS: Green (confirmation actions).
     """
 
     DEFAULT = auto()
+    "No special colour (theme default)."
+
     PRIMARY = auto()
-    DANGER  = auto()
+    "Dark-blue / accent colour."
+
+    DANGER = auto()
+    "Red (destructive actions)."
+
     SUCCESS = auto()
+    "Green (confirmation actions)."
