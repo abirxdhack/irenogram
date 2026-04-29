@@ -1,0 +1,42 @@
+{% extends "furo/search.html" %}
+
+{%- block htmltitle -%}
+<title>Search — {{ docstitle }}</title>
+{%- endblock htmltitle -%}
+
+{%- block content -%}
+<article role="main" id="furo-main-content">
+    <noscript>
+        <div class="admonition error">
+            <p class="admonition-title">JavaScript required</p>
+            <p>Please enable JavaScript to use the documentation search.</p>
+        </div>
+    </noscript>
+    <div id="search-results"></div>
+</article>
+{%- endblock content -%}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    function tryRun() {
+        if (typeof Search === "undefined") return false;
+        try {
+            var params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, "?"));
+            var q = params.get("q") || "";
+            if (typeof Search.init === "function") { Search.init(); }
+            if (q && typeof Search.performSearch === "function") {
+                Search.performSearch(q);
+            }
+            return true;
+        } catch (e) { return false; }
+    }
+    var attempts = 0;
+    var t = setInterval(function () {
+        attempts++;
+        if (tryRun() || attempts > 80) { clearInterval(t); }
+    }, 120);
+})();
+</script>
+{% endblock %}
