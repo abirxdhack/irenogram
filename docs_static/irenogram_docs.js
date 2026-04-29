@@ -10,6 +10,11 @@
         PERFORMANCE_OBSERVER.metrics[name] = performance.now() - PERFORMANCE_OBSERVER.start;
     }
 
+    function isSearchPage() {
+        return !!document.getElementById("search-results")
+            || /\/search\/?(\?|$)/.test(window.location.pathname);
+    }
+
     function applyStoredTheme() {
         const stored = localStorage.getItem("theme");
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -27,11 +32,11 @@
                 const next = current === "light" ? "dark" : "light";
                 document.body.setAttribute("data-theme", next);
                 localStorage.setItem("theme", next);
-                
+
                 const toggleBtn = e.target.closest(".theme-toggle");
                 if (toggleBtn) {
                     toggleBtn.style.animation = "none";
-                    setTimeout(() => {
+                    setTimeout(function () {
                         toggleBtn.style.animation = "";
                     }, 10);
                 }
@@ -39,420 +44,240 @@
         });
     }
 
-    function streamTextToElement(element, text, speed = 15) {
-        element.textContent = "";
-        let index = 0;
+    function getQueryParam(name) {
+        try {
+            const params = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, "?"));
+            return params.get(name) || "";
+        } catch (e) {
+            return "";
+        }
+    }
 
-        function typeNext() {
-            if (index < text.length) {
-                const char = text[index];
-                if (char === "\n") {
-                    element.appendChild(document.createElement("br"));
-                } else {
-                    element.textContent += char;
-                }
-                index++;
-                setTimeout(typeNext, speed);
+    function getDocRoot() {
+        const meta = document.querySelector("meta[name='docs_url_root']");
+        if (meta && meta.content) return meta.content;
+        const html = document.documentElement;
+        return html.getAttribute("data-content_root") || "../";
+    }
+
+    function categorizeResult(href) {
+        const url = (href || "").toLowerCase();
+        if (url.includes("/api/methods/")) return { label: "Method", cls: "ire-rs-method", icon: "fa-bolt" };
+        if (url.includes("/api/types/")) return { label: "Type", cls: "ire-rs-type", icon: "fa-cube" };
+        if (url.includes("/api/enums/")) return { label: "Enum", cls: "ire-rs-enum", icon: "fa-list" };
+        if (url.includes("/api/filters/")) return { label: "Filter", cls: "ire-rs-filter", icon: "fa-filter" };
+        if (url.includes("/api/handlers/")) return { label: "Handler", cls: "ire-rs-handler", icon: "fa-plug" };
+        if (url.includes("/api/decorators/")) return { label: "Decorator", cls: "ire-rs-deco", icon: "fa-at" };
+        if (url.includes("/api/errors/")) return { label: "Error", cls: "ire-rs-error", icon: "fa-triangle-exclamation" };
+        if (url.includes("/telegram/base/")) return { label: "Raw Base", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        if (url.includes("/telegram/types/")) return { label: "Raw Type", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        if (url.includes("/telegram/functions/")) return { label: "Raw Func", cls: "ire-rs-raw", icon: "fa-layer-group" };
+        if (url.includes("/start/")) return { label: "Guide", cls: "ire-rs-guide", icon: "fa-book-open" };
+        if (url.includes("/intro/")) return { label: "Intro", cls: "ire-rs-guide", icon: "fa-flag" };
+        if (url.includes("/faq")) return { label: "FAQ", cls: "ire-rs-guide", icon: "fa-circle-question" };
+        if (url.includes("/releases")) return { label: "Release", cls: "ire-rs-guide", icon: "fa-tag" };
+        return { label: "Page", cls: "ire-rs-page", icon: "fa-file-lines" };
+    }
+
+    function highlightMatch(text, query) {
+        if (!text || !query) return text || "";
+        const tokens = query.split(/\s+/).filter(function (t) { return t.length > 1; });
+        if (!tokens.length) return text;
+        const escaped = tokens.map(function (t) {
+            return t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        });
+        const re = new RegExp("(" + escaped.join("|") + ")", "ig");
+        return text.replace(re, '<mark class="ire-rs-mark">$1</mark>');
+    }
+
+    function buildSearchPageScaffold(query) {
+        const article = document.querySelector('article[role="main"]');
+        if (!article) return null;
+
+        if (article.querySelector(".ire-search-page")) {
+            return article.querySelector(".ire-search-page");
+        }
+
+        const wrap = document.createElement("div");
+        wrap.className = "ire-search-page";
+        wrap.innerHTML =
+            '<header class="ire-search-hero">' +
+                '<div class="ire-search-hero-inner">' +
+                    '<div class="ire-search-badge"><i class="fa-solid fa-magnifying-glass"></i> Search</div>' +
+                    '<h1 class="ire-search-title">Search the Irenogram docs</h1>' +
+                    '<p class="ire-search-sub">Find methods, types, enums, filters, handlers, raw API and guides.</p>' +
+                    '<form class="ire-search-form" method="get" action="">' +
+                        '<i class="fa-solid fa-magnifying-glass ire-search-form-icon"></i>' +
+                        '<input class="ire-search-input" type="search" name="q" autocomplete="off" spellcheck="false" placeholder="Try: send_message, InlineKeyboardButton, filters.text" />' +
+                        '<input type="hidden" name="check_keywords" value="yes" />' +
+                        '<input type="hidden" name="area" value="default" />' +
+                        '<button type="submit" class="ire-search-submit">Search</button>' +
+                    '</form>' +
+                    '<div class="ire-search-status" role="status" aria-live="polite"></div>' +
+                '</div>' +
+            '</header>' +
+            '<section class="ire-search-results-wrap" aria-label="Search results"></section>';
+
+        const existing = document.getElementById("search-results");
+        if (existing) {
+            existing.classList.add("ire-rs-host");
+            wrap.querySelector(".ire-search-results-wrap").appendChild(existing);
+        } else {
+            const host = document.createElement("div");
+            host.id = "search-results";
+            host.classList.add("ire-rs-host");
+            wrap.querySelector(".ire-search-results-wrap").appendChild(host);
+        }
+
+        article.innerHTML = "";
+        article.appendChild(wrap);
+
+        const input = wrap.querySelector(".ire-search-input");
+        if (query) input.value = query;
+
+        return wrap;
+    }
+
+    function setSearchStatus(text, state) {
+        const status = document.querySelector(".ire-search-status");
+        if (!status) return;
+        status.textContent = text || "";
+        status.setAttribute("data-state", state || "");
+    }
+
+    function decorateSearchResults(query) {
+        const host = document.getElementById("search-results");
+        if (!host) return;
+
+        const list = host.querySelector("ul.search, ul");
+        if (!list) return;
+        list.classList.add("ire-rs-list");
+
+        list.querySelectorAll("li").forEach(function (li, idx) {
+            if (li.dataset.ireDecorated === "1") return;
+            li.dataset.ireDecorated = "1";
+
+            const link = li.querySelector("a");
+            const ctx = li.querySelector(".context, p");
+            const href = link ? link.getAttribute("href") : "";
+            const cat = categorizeResult(href);
+
+            li.classList.add("ire-rs-item", cat.cls);
+            li.style.animationDelay = (Math.min(idx, 30) * 40) + "ms";
+
+            const titleHTML = link ? highlightMatch(link.textContent, query) : "";
+            const ctxHTML = ctx ? highlightMatch(ctx.textContent, query) : "";
+            const safeHref = href ? href : "#";
+
+            const card = document.createElement("div");
+            card.className = "ire-rs-card";
+            card.innerHTML =
+                '<div class="ire-rs-card-top">' +
+                    '<span class="ire-rs-tag"><i class="fa-solid ' + cat.icon + '"></i> ' + cat.label + '</span>' +
+                    '<span class="ire-rs-path" title="' + safeHref + '">' + safeHref + '</span>' +
+                '</div>' +
+                '<a class="ire-rs-title" href="' + safeHref + '">' + titleHTML + '</a>' +
+                (ctxHTML ? '<p class="ire-rs-context">' + ctxHTML + '</p>' : "") +
+                '<div class="ire-rs-card-bottom"><span class="ire-rs-cta">Open <i class="fa-solid fa-arrow-right"></i></span></div>';
+
+            li.innerHTML = "";
+            li.appendChild(card);
+        });
+
+        const total = list.querySelectorAll("li.ire-rs-item").length;
+        if (total > 0) {
+            setSearchStatus(total + " result" + (total === 1 ? "" : "s") + " for \u201C" + query + "\u201D", "ok");
+        }
+    }
+
+    function observeSearchResults(query) {
+        const host = document.getElementById("search-results");
+        if (!host) return;
+
+        decorateSearchResults(query);
+
+        const mo = new MutationObserver(function () {
+            decorateSearchResults(query);
+
+            const summary = host.querySelector("p.search-summary, .search-summary");
+            if (summary) {
+                const text = summary.textContent.trim();
+                if (text) setSearchStatus(text, "ok");
             }
-        }
-
-        typeNext();
-    }
-
-    /* ═══════════════════════════════════════════════
-       IRENOGRAM LIVE SEARCH  –  full rewrite
-       Sources  : sidebar nav tree  (all pages)
-                  current-page headings + dt members
-       Features : debounced fuzzy match, score ranking,
-                  categorised results, text highlight,
-                  keyboard nav, sessionStorage cache,
-                  dark-mode, accessible
-       ═══════════════════════════════════════════════ */
-
-    /* ── helpers ───────────────────────────────────── */
-
-    function escapeRe(s) {
-        return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-
-    function highlight(text, query) {
-        if (!query) return escapeHtml(text);
-        const re = new RegExp("(" + escapeRe(query) + ")", "gi");
-        return escapeHtml(text).replace(
-            new RegExp("(" + escapeRe(escapeHtml(query)) + ")", "gi"),
-            '<mark class="ire-hl">$1</mark>'
-        );
-    }
-
-    function escapeHtml(s) {
-        return String(s)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;");
-    }
-
-    function debounce(fn, ms) {
-        let t;
-        return function(...args) { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), ms); };
-    }
-
-    /* ── tag pills ─────────────────────────────────── */
-
-    const TAG_META = {
-        method:   { label: "Method",  cls: "tag-method"  },
-        type:     { label: "Type",    cls: "tag-type"    },
-        enum:     { label: "Enum",    cls: "tag-enum"    },
-        page:     { label: "Page",    cls: "tag-page"    },
-        section:  { label: "Section", cls: "tag-section" },
-        member:   { label: "Member",  cls: "tag-member"  },
-    };
-
-    function classifyUrl(url) {
-        if (/\/api\/methods\//.test(url))      return "method";
-        if (/\/api\/types\//.test(url))        return "type";
-        if (/\/api\/enums\//.test(url))        return "enum";
-        if (/\/api\/bound-methods\//.test(url)) return "method";
-        return "page";
-    }
-
-    function tagPill(kind) {
-        const m = TAG_META[kind] || TAG_META.page;
-        return `<span class="ire-tag ${m.cls}">${m.label}</span>`;
-    }
-
-    /* ── index builders ─────────────────────────────── */
-
-    // Nav-tree index: one entry per sidebar link  (cross-page)
-    function buildNavIndex() {
-        const CACHE_KEY = "ire-nav-index-v2";
-        const cached = sessionStorage.getItem(CACHE_KEY);
-        if (cached) {
-            try { return JSON.parse(cached); } catch (_) {}
-        }
-
-        const entries = [];
-        document.querySelectorAll(".sidebar-tree a.reference").forEach(a => {
-            const title = a.textContent.trim();
-            const url   = a.getAttribute("href");
-            if (!title || !url || url.startsWith("http")) return;
-            entries.push({
-                title,
-                url,
-                kind: classifyUrl(url),
-                searchText: title.toLowerCase(),
-            });
-        });
-
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(entries));
-        return entries;
-    }
-
-    // In-page index: headings + API member dt elements
-    function buildPageIndex() {
-        const entries = [];
-        const base    = window.location.pathname;
-
-        document.querySelectorAll("article h1, article h2, article h3").forEach(h => {
-            const id    = h.id || h.querySelector("[id]")?.id;
-            const title = h.textContent.trim().replace(/¶$/, "");
-            if (!title) return;
-            entries.push({
-                title,
-                url:        base + (id ? "#" + id : ""),
-                kind:       "section",
-                searchText: title.toLowerCase(),
-            });
-        });
-
-        document.querySelectorAll("article dt[id]").forEach(dt => {
-            const id    = dt.id;
-            const title = dt.querySelector(".sig-name")?.textContent.trim()
-                       || dt.textContent.trim().replace(/¶$/, "").split("(")[0].trim();
-            if (!title || title.length > 80) return;
-            entries.push({
-                title,
-                url:        base + "#" + id,
-                kind:       "member",
-                searchText: title.toLowerCase(),
-            });
-        });
-
-        return entries;
-    }
-
-    /* ── scoring + search ───────────────────────────── */
-
-    function scoreEntry(entry, q) {
-        const s = entry.searchText;
-        const ql = q.toLowerCase();
-        if (s === ql)             return 100;
-        if (s.startsWith(ql))    return 80;
-        if (s.includes(ql))      return 60;
-        // word-boundary partial
-        const words = s.split(/[\s._-]+/);
-        if (words.some(w => w.startsWith(ql))) return 40;
-        if (words.some(w => w.includes(ql)))   return 20;
-        return 0;
-    }
-
-    function runSearch(q, navIndex, pageIndex) {
-        const ql = q.toLowerCase().trim();
-        if (ql.length < 2) return { page: [], nav: [] };
-
-        function rank(list) {
-            return list
-                .map(e => ({ entry: e, score: scoreEntry(e, ql) }))
-                .filter(x => x.score > 0)
-                .sort((a, b) => b.score - a.score);
-        }
-
-        const pageRanked = rank(pageIndex);
-        const navRanked  = rank(navIndex);
-
-        // De-duplicate nav vs page by url
-        const pagePaths = new Set(pageRanked.map(x => x.entry.url));
-        const navFiltered = navRanked.filter(x => !pagePaths.has(x.entry.url));
-
-        return {
-            page: pageRanked.slice(0, 4).map(x => x.entry),
-            nav:  navFiltered.slice(0, 6).map(x => x.entry),
-            total: pageRanked.length + navFiltered.length,
-        };
-    }
-
-    /* ── dropdown DOM ───────────────────────────────── */
-
-    function buildDropdown() {
-        const el = document.createElement("div");
-        el.className    = "ire-search-dropdown";
-        el.id           = "ireSearchDropdown";
-        el.setAttribute("role", "listbox");
-        el.setAttribute("aria-label", "Search results");
-        el.style.display = "none";
-        return el;
-    }
-
-    function renderEntry(entry, q, idx) {
-        const div = document.createElement("div");
-        div.className = "ire-result-item";
-        div.setAttribute("role", "option");
-        div.setAttribute("data-idx", idx);
-        div.setAttribute("data-url", entry.url);
-        div.tabIndex = -1;
-
-        div.innerHTML = `
-            <div class="ire-result-row">
-                <span class="ire-result-title">${highlight(entry.title, q)}</span>
-                ${tagPill(entry.kind)}
-            </div>`;
-
-        return div;
-    }
-
-    function renderDropdown(dropdown, results, q, searchRoot) {
-        dropdown.innerHTML = "";
-
-        const { page, nav, total } = results;
-        const hasResults = page.length + nav.length > 0;
-
-        if (!hasResults) {
-            dropdown.innerHTML = `
-                <div class="ire-no-results">
-                    <span class="ire-no-results-icon">⌕</span>
-                    <span>No results for <strong>${escapeHtml(q)}</strong></span>
-                </div>`;
-            showDropdown(dropdown);
-            return;
-        }
-
-        let idx = 0;
-
-        if (page.length) {
-            const sec = document.createElement("div");
-            sec.className = "ire-section-header";
-            sec.textContent = "On this page";
-            dropdown.appendChild(sec);
-            page.forEach(e => dropdown.appendChild(renderEntry(e, q, idx++)));
-        }
-
-        if (nav.length) {
-            const sec = document.createElement("div");
-            sec.className = "ire-section-header";
-            sec.textContent = "Documentation";
-            dropdown.appendChild(sec);
-            nav.forEach(e => dropdown.appendChild(renderEntry(e, q, idx++)));
-        }
-
-        // Footer "see all"
-        const searchHref = buildSearchUrl(q);
-        const footer = document.createElement("a");
-        footer.className = "ire-search-footer";
-        footer.href      = searchHref;
-        footer.innerHTML = `<span>See all results for <strong>${escapeHtml(q)}</strong></span><span class="ire-footer-arrow">→</span>`;
-        dropdown.appendChild(footer);
-
-        showDropdown(dropdown);
-    }
-
-    function buildSearchUrl(q) {
-        // walk up from sidebar form to figure out search path
-        const form = document.querySelector(".sidebar-search-container");
-        const action = form ? form.getAttribute("action") : "/search/";
-        return `${action}?q=${encodeURIComponent(q)}&check_keywords=yes&area=default`;
-    }
-
-    function showDropdown(dropdown) {
-        dropdown.style.display = "block";
-        dropdown.classList.remove("ire-dropdown-exit");
-        dropdown.classList.add("ire-dropdown-enter");
-    }
-
-    function hideDropdown(dropdown) {
-        if (dropdown.style.display === "none") return;
-        dropdown.classList.remove("ire-dropdown-enter");
-        dropdown.classList.add("ire-dropdown-exit");
-        setTimeout(() => {
-            dropdown.style.display = "none";
-            dropdown.classList.remove("ire-dropdown-exit");
-        }, 180);
-    }
-
-    /* ── keyboard navigation ────────────────────────── */
-
-    function setupKeyboard(input, dropdown) {
-        let active = -1;
-
-        function items() {
-            return Array.from(dropdown.querySelectorAll(".ire-result-item, .ire-search-footer"));
-        }
-
-        function activate(i) {
-            const els = items();
-            els.forEach(el => el.classList.remove("ire-active"));
-            active = Math.max(-1, Math.min(i, els.length - 1));
-            if (active >= 0) {
-                els[active].classList.add("ire-active");
-                els[active].scrollIntoView({ block: "nearest" });
-            }
-        }
-
-        input.addEventListener("keydown", e => {
-            if (dropdown.style.display === "none") return;
-
-            switch (e.key) {
-                case "ArrowDown":
-                    e.preventDefault();
-                    activate(active + 1);
-                    break;
-                case "ArrowUp":
-                    e.preventDefault();
-                    activate(active - 1);
-                    break;
-                case "Enter":
-                    e.preventDefault();
-                    if (active >= 0) {
-                        const el = items()[active];
-                        const url = el.dataset.url || el.getAttribute("href");
-                        if (url) window.location.href = url;
-                    } else {
-                        // submit to full search
-                        const form = document.querySelector(".sidebar-search-container");
-                        if (form) form.submit();
-                    }
-                    break;
-                case "Escape":
-                    e.preventDefault();
-                    hideDropdown(dropdown);
-                    input.blur();
-                    active = -1;
-                    break;
+            if (host.textContent.toLowerCase().indexOf("did not match any documents") !== -1) {
+                setSearchStatus("No results matched \u201C" + query + "\u201D. Try different keywords.", "empty");
             }
         });
-
-        // reset active on new render
-        dropdown.addEventListener("mouseenter", () => {
-            items().forEach(el => el.classList.remove("ire-active"));
-            active = -1;
-        });
-
-        return { reset: () => { active = -1; } };
+        mo.observe(host, { childList: true, subtree: true, characterData: true });
     }
 
-    /* ── click navigation on items ──────────────────── */
+    function runSphinxSearch(query) {
+        if (typeof window.Search === "undefined") return false;
+        try {
+            if (typeof window.Search.init === "function") {
+                window.Search.init();
+            }
+            if (query && typeof window.Search.performSearch === "function") {
+                window.Search.performSearch(query);
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
 
-    function setupItemClicks(dropdown, input) {
-        dropdown.addEventListener("click", e => {
-            const item = e.target.closest(".ire-result-item");
-            if (item) {
-                const url = item.dataset.url;
-                if (url) {
-                    input.value = "";
-                    hideDropdown(dropdown);
-                    window.location.href = url;
+    function initSearchPage() {
+        if (!isSearchPage()) return;
+
+        const query = getQueryParam("q") || "";
+        buildSearchPageScaffold(query);
+
+        if (query) {
+            setSearchStatus("Searching for \u201C" + query + "\u201D \u2026", "loading");
+        } else {
+            setSearchStatus("Type a query and press Enter.", "idle");
+        }
+
+        observeSearchResults(query);
+
+        let attempts = 0;
+        const maxAttempts = 60;
+        const timer = setInterval(function () {
+            attempts++;
+            const ok = runSphinxSearch(query);
+            const indexReady = window.Search && window.Search._index;
+            if ((ok && indexReady) || attempts >= maxAttempts) {
+                clearInterval(timer);
+                if (query && attempts >= maxAttempts && !indexReady) {
+                    setSearchStatus("Search index could not be loaded. Reload the page.", "error");
                 }
             }
-        });
-    }
+        }, 150);
 
-    /* ── main init ──────────────────────────────────── */
-
-    function initGlobalSearch() {
-        const input = document.querySelector(".sidebar-search");
-        if (!input) return;
-
-        // Prevent default form submit when dropdown is open (let Enter handler take over)
-        const form = input.closest("form");
-
-        // Build dropdown
-        const wrapper = document.createElement("div");
-        wrapper.className = "ire-search-wrapper";
-        input.parentNode.insertBefore(wrapper, input);
-        wrapper.appendChild(input);
-
-        const dropdown = buildDropdown();
-        wrapper.appendChild(dropdown);
-
-        // Build indices
-        const navIndex  = buildNavIndex();
-        const pageIndex = buildPageIndex();
-
-        const { reset: kbReset } = setupKeyboard(input, dropdown);
-        setupItemClicks(dropdown, input);
-
-        // Live search on input
-        const doSearch = debounce((q) => {
-            if (q.length < 2) { hideDropdown(dropdown); return; }
-            const results = runSearch(q, navIndex, pageIndex);
-            renderDropdown(dropdown, results, q, wrapper);
-            kbReset();
-        }, 130);
-
-        input.addEventListener("input", e => doSearch(e.target.value.trim()));
-
-        // Show on focus if query already present
-        input.addEventListener("focus", () => {
-            if (input.value.trim().length >= 2) {
-                doSearch(input.value.trim());
-            }
-        });
-
-        // Close on outside click
-        document.addEventListener("click", e => {
-            if (!wrapper.contains(e.target)) {
-                hideDropdown(dropdown);
-            }
-        }, true);
-
-        // Prevent form submit if dropdown is showing
+        const form = document.querySelector(".ire-search-form");
         if (form) {
-            form.addEventListener("submit", e => {
-                if (dropdown.style.display !== "none") {
+            form.addEventListener("submit", function (e) {
+                const input = form.querySelector(".ire-search-input");
+                const v = input && input.value.trim();
+                if (!v) {
                     e.preventDefault();
-                    // navigate to full search instead
-                    window.location.href = buildSearchUrl(input.value.trim());
+                    input && input.focus();
                 }
             });
+        }
+
+        const sidebarForm = document.querySelector(".sidebar-search-container");
+        if (sidebarForm) {
+            sidebarForm.setAttribute("action", getDocRoot() + "search.html");
+        }
+    }
+
+    function rewireSidebarSearch() {
+        const sidebarForm = document.querySelector(".sidebar-search-container");
+        if (!sidebarForm) return;
+        const action = sidebarForm.getAttribute("action") || "";
+        if (action === "" || action === "#") {
+            sidebarForm.setAttribute("action", getDocRoot() + "search.html");
         }
     }
 
@@ -463,21 +288,23 @@
         if (!starsCountEl && !usedByCountEl) return;
 
         const cacheKey = "ire-github-cache";
-        const cacheTime = localStorage.getItem(`${cacheKey}-time`);
+        const cacheTime = localStorage.getItem(cacheKey + "-time");
         const now = Date.now();
 
         if (cacheTime && now - parseInt(cacheTime) < 3600000) {
-            const cached = JSON.parse(localStorage.getItem(cacheKey));
-            if (cached && starsCountEl) {
-                starsCountEl.textContent = cached.stars;
-                starsCountEl.style.animation = "pulse 0.6s ease-out";
-            }
-            if (cached && usedByCountEl) {
-                usedByCountEl.textContent = cached.used;
-                usedByCountEl.style.animation = "pulse 0.6s ease-out";
-            }
-            recordMetric("githubCountersCached");
-            return;
+            try {
+                const cached = JSON.parse(localStorage.getItem(cacheKey));
+                if (cached && starsCountEl) {
+                    starsCountEl.textContent = cached.stars;
+                    starsCountEl.style.animation = "pulse 0.6s ease-out";
+                }
+                if (cached && usedByCountEl) {
+                    usedByCountEl.textContent = cached.used;
+                    usedByCountEl.style.animation = "pulse 0.6s ease-out";
+                }
+                recordMetric("githubCountersCached");
+                return;
+            } catch (e) {}
         }
 
         fetch("https://api.github.com/repos/abirxdhack/irenogram", {
@@ -488,8 +315,8 @@
                 return r.json();
             })
             .then(function (data) {
-                const starsCount = data.stargazers_count ? data.stargazers_count.toLocaleString() : "—";
-                const usedCount = data.network_count ? data.network_count.toLocaleString() : "—";
+                const starsCount = data.stargazers_count ? data.stargazers_count.toLocaleString() : "\u2014";
+                const usedCount = data.network_count ? data.network_count.toLocaleString() : "\u2014";
 
                 if (starsCountEl) {
                     starsCountEl.textContent = starsCount;
@@ -500,16 +327,13 @@
                     usedByCountEl.style.animation = "slideInRight 0.5s ease-out";
                 }
 
-                localStorage.setItem(cacheKey, JSON.stringify({
-                    stars: starsCount,
-                    used: usedCount
-                }));
-                localStorage.setItem(`${cacheKey}-time`, now.toString());
+                localStorage.setItem(cacheKey, JSON.stringify({ stars: starsCount, used: usedCount }));
+                localStorage.setItem(cacheKey + "-time", now.toString());
                 recordMetric("githubCountersFetched");
             })
             .catch(function () {
-                if (starsCountEl) starsCountEl.textContent = "—";
-                if (usedByCountEl) usedByCountEl.textContent = "—";
+                if (starsCountEl) starsCountEl.textContent = "\u2014";
+                if (usedByCountEl) usedByCountEl.textContent = "\u2014";
             });
     }
 
@@ -538,7 +362,7 @@
                 const originalText = btn.innerHTML;
                 const originalClass = btn.className;
 
-                btn.innerHTML = "✓ Copied";
+                btn.innerHTML = "\u2713 Copied";
                 btn.classList.add("copied");
 
                 setTimeout(function () {
@@ -549,7 +373,7 @@
                 if (btn.closest(".highlight")) {
                     const codeBlock = btn.closest(".highlight").querySelector("pre");
                     if (codeBlock) {
-                        navigator.clipboard.writeText(codeBlock.textContent).catch(() => {});
+                        navigator.clipboard.writeText(codeBlock.textContent).catch(function () {});
                     }
                 }
             }
@@ -559,14 +383,16 @@
     function initSmoothScroll() {
         document.querySelectorAll('a[href^="#"]').forEach(function (a) {
             a.addEventListener("click", function (e) {
-                const target = document.querySelector(this.getAttribute("href"));
+                const hash = this.getAttribute("href");
+                if (!hash || hash === "#") return;
+                const target = document.querySelector(hash);
                 if (target) {
                     e.preventDefault();
                     target.scrollIntoView({ behavior: "smooth", block: "start" });
-                    history.pushState(null, null, this.getAttribute("href"));
+                    history.pushState(null, "", hash);
 
                     target.style.animation = "none";
-                    setTimeout(() => {
+                    setTimeout(function () {
                         target.style.animation = "glow 0.8s ease-out";
                     }, 10);
                 }
@@ -582,7 +408,7 @@
 
         window.addEventListener("scroll", function () {
             if (!ticking) {
-                requestAnimationFrame(() => {
+                requestAnimationFrame(function () {
                     const visible = window.scrollY > 300;
                     btn.style.opacity = visible ? "1" : "0";
                     btn.style.pointerEvents = visible ? "auto" : "none";
@@ -599,32 +425,28 @@
     }
 
     function initTableEnhancements() {
-        document.querySelectorAll("table.docutils").forEach(table => {
+        document.querySelectorAll("table.docutils").forEach(function (table) {
             table.style.animation = "fadeInUp 0.6s ease-out";
-
             const rows = table.querySelectorAll("tbody tr");
-            rows.forEach((row, idx) => {
-                row.style.animation = `fadeInUp ${0.05 * (idx + 1)}s ease-out`;
+            rows.forEach(function (row, idx) {
+                row.style.animation = "fadeInUp " + (0.05 * (idx + 1)) + "s ease-out";
             });
         });
     }
 
     function initCodeBlockEnhancements() {
-        document.querySelectorAll(".highlight").forEach((block, idx) => {
-            block.style.animation = `fadeInUp ${0.1 * (idx + 1)}s ease-out`;
+        document.querySelectorAll(".highlight").forEach(function (block, idx) {
+            block.style.animation = "fadeInUp " + (0.1 * (idx + 1)) + "s ease-out";
         });
     }
 
     function initIntersectionObserver() {
         if (!("IntersectionObserver" in window)) return;
+        if (isSearchPage()) return;
 
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: "0px 0px -50px 0px"
-        };
-
-        const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => {
+        const observerOptions = { threshold: 0.1, rootMargin: "0px 0px -50px 0px" };
+        const observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     entry.target.style.animation = "fadeInUp 0.6s ease-out";
                     observer.unobserve(entry.target);
@@ -632,17 +454,16 @@
             });
         }, observerOptions);
 
-        document.querySelectorAll("article p, article ul, article ol").forEach(el => {
+        document.querySelectorAll("article p, article ul, article ol").forEach(function (el) {
             observer.observe(el);
         });
     }
 
     function initLazyLoading() {
         if (!("IntersectionObserver" in window)) return;
-
         const lazyImages = document.querySelectorAll("img[data-src]");
-        const imageObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
+        const imageObserver = new IntersectionObserver(function (entries, observer) {
+            entries.forEach(function (entry) {
                 if (entry.isIntersecting) {
                     const img = entry.target;
                     img.src = img.getAttribute("data-src");
@@ -652,35 +473,26 @@
                 }
             });
         });
-
-        lazyImages.forEach(img => imageObserver.observe(img));
+        lazyImages.forEach(function (img) { imageObserver.observe(img); });
     }
 
     function initReadingProgress() {
         const progressBar = document.createElement("div");
-        progressBar.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #E04000, #f07040);
-            z-index: 9999;
-            transition: width 0.2s ease-out;
-        `;
+        progressBar.className = "ire-reading-progress";
         document.body.appendChild(progressBar);
 
-        window.addEventListener("scroll", () => {
+        window.addEventListener("scroll", function () {
             const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            const scrolled = (window.scrollY / docHeight) * 100;
+            const scrolled = docHeight > 0 ? (window.scrollY / docHeight) * 100 : 0;
             progressBar.style.width = scrolled + "%";
         }, { passive: true });
     }
 
     function initPreloadLinks() {
-        document.querySelectorAll("a[href]").forEach(link => {
+        document.querySelectorAll("a[href]").forEach(function (link) {
             const href = link.getAttribute("href");
             if (href && href.startsWith("/") && !href.includes("javascript:")) {
-                link.addEventListener("mouseenter", () => {
+                link.addEventListener("mouseenter", function () {
                     const preloadLink = document.createElement("link");
                     preloadLink.rel = "prefetch";
                     preloadLink.href = href;
@@ -693,11 +505,9 @@
     function initDarkModeTransition() {
         const themeToggle = document.querySelector(".theme-toggle");
         if (themeToggle) {
-            themeToggle.addEventListener("click", () => {
+            themeToggle.addEventListener("click", function () {
                 document.body.style.transition = "background-color 0.3s ease-out, color 0.3s ease-out";
-                setTimeout(() => {
-                    document.body.style.transition = "";
-                }, 300);
+                setTimeout(function () { document.body.style.transition = ""; }, 300);
             });
         }
     }
@@ -705,55 +515,21 @@
     function initHeaderStickyBehavior() {
         const header = document.querySelector("header");
         if (!header) return;
-
         let lastScrollY = 0;
-        let scrollDirection = "down";
-
-        window.addEventListener("scroll", () => {
+        window.addEventListener("scroll", function () {
             const currentScrollY = window.scrollY;
-            scrollDirection = currentScrollY > lastScrollY ? "down" : "up";
+            header.classList.toggle("ire-header-shrunk", currentScrollY > 80);
             lastScrollY = currentScrollY;
         }, { passive: true });
     }
 
-    applyStoredTheme();
-
-    document.addEventListener("DOMContentLoaded", function () {
-        initThemeToggle();
-        fetchGitHubCounters();
-        highlightCurrentNav();
-        addCopyFeedback();
-        initSmoothScroll();
-        initBackToTop();
-        initGlobalSearch();
-        initTableEnhancements();
-        initCodeBlockEnhancements();
-        initIntersectionObserver();
-        initLazyLoading();
-        initReadingProgress();
-        initPreloadLinks();
-        initDarkModeTransition();
-        initHeaderStickyBehavior();
-
-        recordMetric("domReady");
-
-        cleanupEnumDocumentation();
-
-        if (window.performance && window.performance.measure) {
-            try {
-                performance.measure("irenogram-init", "navigationStart", undefined);
-            } catch (e) {}
-        }
-    });
-
     function cleanupEnumDocumentation() {
+        if (isSearchPage()) return;
         const article = document.querySelector('article[role="main"]');
         if (!article) return;
 
         const dts = article.querySelectorAll('dl dt');
-        const dds = article.querySelectorAll('dl dd');
-        
-        dts.forEach((dt, idx) => {
+        dts.forEach(function (dt) {
             const text = dt.textContent.trim();
             if (text.includes('=') && text.includes('<class')) {
                 const nameMatch = text.match(/^([A-Z_]+)\s*=/);
@@ -764,16 +540,34 @@
         });
 
         const docinfos = article.querySelectorAll('div.docinfo, .field-list');
-        docinfos.forEach(el => {
+        docinfos.forEach(function (el) {
             if (el.textContent.includes('pyrogram.raw')) {
                 el.style.display = 'none';
             }
         });
     }
 
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", function () {
-            recordMetric("contentLoaded");
-        });
-    }
+    applyStoredTheme();
+
+    document.addEventListener("DOMContentLoaded", function () {
+        initThemeToggle();
+        rewireSidebarSearch();
+        initSearchPage();
+        fetchGitHubCounters();
+        highlightCurrentNav();
+        addCopyFeedback();
+        initSmoothScroll();
+        initBackToTop();
+        initTableEnhancements();
+        initCodeBlockEnhancements();
+        initIntersectionObserver();
+        initLazyLoading();
+        initReadingProgress();
+        initPreloadLinks();
+        initDarkModeTransition();
+        initHeaderStickyBehavior();
+        cleanupEnumDocumentation();
+
+        recordMetric("domReady");
+    });
 })();
