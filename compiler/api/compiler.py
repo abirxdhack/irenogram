@@ -1,3 +1,4 @@
+
 import json
 import os
 import re
@@ -33,35 +34,15 @@ namespaces_to_types = {}
 namespaces_to_constructors = {}
 namespaces_to_functions = {}
 
-
-def _load_docs():
-    """Load docs.json from the canonical docs_static location.
-
-    The user keeps the schema documentation file at ``docs_static/docs.json``
-    relative to the repository root. We resolve it from the location of
-    ``HOME_PATH`` (``compiler/api``) by walking two levels up to the repo
-    root and then into ``docs_static``. We also keep a couple of fallbacks
-    so the script remains usable when invoked from inside ``compiler/api``
-    directly (during local debugging).
-    """
-    candidates = [
-        Path("docs_static/docs.json"),
-        Path("../../docs_static/docs.json"),
-        HOME_PATH.parent.parent / "docs_static" / "docs.json",
-        Path(__file__).resolve().parent.parent.parent / "docs_static" / "docs.json",
-    ]
-    for path in candidates:
-        try:
-            if path.is_file():
-                with open(str(path)) as fh:
-                    return json.load(fh)
-        except (OSError, ValueError):
-            continue
-    return {"type": {}, "constructor": {}, "method": {}}
-
-
-docs = _load_docs()
-
+try:
+    with open("docs.json") as f:
+        docs = json.load(f)
+except FileNotFoundError:
+    docs = {
+        "type": {},
+        "constructor": {},
+        "method": {}
+    }
 
 class Combinator(NamedTuple):
     section: str
@@ -75,15 +56,13 @@ class Combinator(NamedTuple):
     typespace: str
     type: str
 
-
 def snake(s: str):
+
     s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s).lower()
 
-
 def camel(s: str):
     return "".join([i[0].upper() + i[1:] for i in s.split("_")])
-
 
 def get_type_hint(type: str) -> str:
     is_flag = FLAGS_RE.match(type)
@@ -123,7 +102,6 @@ def get_type_hint(type: str) -> str:
 
         return f'{type}{" = None" if is_flag else ""}'
 
-
 def sort_args(args):
     """Put flags at the end"""
     args = args.copy()
@@ -138,7 +116,6 @@ def sort_args(args):
 
     return args + flags
 
-
 def remove_whitespaces(source: str) -> str:
     """Remove whitespaces from blank lines"""
     lines = source.split("\n")
@@ -148,7 +125,6 @@ def remove_whitespaces(source: str) -> str:
             lines[i] = ""
 
     return "\n".join(lines)
-
 
 def get_docstring_arg_type(t: str):
     if t in CORE_TYPES:
@@ -174,7 +150,6 @@ def get_docstring_arg_type(t: str):
     else:
         return f":obj:`{t} <pyrogram.raw.base.{t}>`"
 
-
 def get_references(t: str, kind: str):
     if kind == "constructors":
         t = constructors_to_functions.get(t)
@@ -187,103 +162,6 @@ def get_references(t: str, kind: str):
         return "\n            ".join(t), len(t)
 
     return None, 0
-
-
-def _normalize_usable_by(raw):
-    """Return a normalized set of audience tokens from the docs entry.
-
-    Kurigram's ``docs.json`` exposes the audience information in several
-    historically valid shapes:
-
-    * ``"usable-by": ["users", "bots"]``
-    * ``"usable-by": "users, bots"``
-    * ``"usable-by": {"users": True, "bots": False}``
-
-    We normalise to a lowercase ``set`` containing any of ``"users"`` and
-    ``"bots"`` so callers can look the values up uniformly.
-    """
-    tokens = set()
-    if raw is None:
-        return tokens
-    if isinstance(raw, dict):
-        for key, value in raw.items():
-            if value:
-                tokens.add(str(key).strip().lower())
-        return tokens
-    if isinstance(raw, str):
-        raw = [piece for piece in re.split(r"[,\s]+", raw) if piece]
-    if isinstance(raw, (list, tuple, set)):
-        for item in raw:
-            tokens.add(str(item).strip().lower())
-    return tokens
-
-
-def _bool_flag(meta: dict, *names) -> bool:
-    """Read a boolean flag from the docs entry trying multiple key spellings."""
-    if not isinstance(meta, dict):
-        return False
-    for name in names:
-        if name in meta and bool(meta[name]):
-            return True
-    return False
-
-
-def _build_usable_by_block(method_meta: dict) -> str:
-    """Build the Sphinx ``.. raw:: html`` badge block for a method.
-
-    The output mimics the visual treatment used by Kurigram's docs:
-    four badges describing the audience and authentication requirements
-    of a Telegram raw method. Badges resolve to a green check (allowed)
-    or a red cross (forbidden) and are styled by ``docs_static/irenogram.css``.
-    """
-    if not isinstance(method_meta, dict):
-        method_meta = {}
-
-    audience = _normalize_usable_by(
-        method_meta.get("usable-by")
-        or method_meta.get("usable_by")
-        or method_meta.get("usableBy")
-    )
-    users_ok = "users" in audience
-    bots_ok = "bots" in audience
-    business_ok = _bool_flag(
-        method_meta,
-        "can_use_business_connection",
-        "can-use-business-connection",
-        "business_connection",
-        "usable_with_business_connection",
-    )
-    no_auth_ok = _bool_flag(
-        method_meta,
-        "can_use_without_auth",
-        "can-use-without-auth",
-        "without_auth",
-        "no_auth",
-    )
-
-    def _badge(label: str, allowed: bool) -> str:
-        cls = "usable-by-on" if allowed else "usable-by-off"
-        icon = "✓" if allowed else "✗"
-        return (
-            f'<span class="usable-by-badge {cls}">'
-            f'<span class="usable-by-icon">{icon}</span>'
-            f'<span class="usable-by-label">{label}</span>'
-            f"</span>"
-        )
-
-    badges = "".join([
-        _badge("Users", users_ok),
-        _badge("Bots", bots_ok),
-        _badge("Business connections", business_ok),
-        _badge("No auth required", no_auth_ok),
-    ])
-
-    block = (
-        "    .. raw:: html\n\n"
-        f'        <div class="usable-by-block">{badges}</div>\n'
-    )
-    return block
-
 
 def start(format: bool = False):
     shutil.rmtree(DESTINATION_PATH / "types", ignore_errors=True)
@@ -508,12 +386,7 @@ def start(format: bool = False):
             if function_docs:
                 docstring += function_docs["desc"] + "\n"
             else:
-                function_docs = {}
                 docstring += "Telegram API function."
-
-            usable_by_block = _build_usable_by_block(function_docs or {})
-            if usable_by_block:
-                docstring += "\n\n" + usable_by_block
 
         docstring += f"\n\n    Details:\n        - Layer: ``{layer}``\n        - ID: ``{c.id[2:].upper()}``\n\n"
         docstring += "    Parameters:\n        " +\
@@ -710,7 +583,7 @@ def start(format: bool = False):
             if not namespace:
                 f.write(f"from . import {', '.join(filter(bool, namespaces_to_functions))}")
 
-    with open(DESTINATION_PATH / "all.py", "w") as f:
+    with open(DESTINATION_PATH / "all.py", "w", encoding="utf-8") as f:
         f.write(notice + "\n\n")
         f.write(WARNING + "\n\n")
         f.write(f"layer = {layer}\n\n")
@@ -729,7 +602,6 @@ def start(format: bool = False):
         f.write('\n    0x5bb8e511: "pyrogram.raw.core.Message",')
 
         f.write("\n}\n")
-
 
 if "__main__" == __name__:
     HOME_PATH = Path(".")
