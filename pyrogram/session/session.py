@@ -1,4 +1,3 @@
-
 import asyncio
 import bisect
 import logging
@@ -28,27 +27,26 @@ log = logging.getLogger(__name__)
 _STRUCT_I = struct.Struct("<i")
 
 class Result:
-    """Awaitable container for a pending RPC result."""
     __slots__ = ["value", "future"]
 
     def __init__(self, loop: asyncio.AbstractEventLoop):
-        self.value  = None
+        self.value = None
         self.future: asyncio.Future = loop.create_future()
 
 class Session:
-    START_TIMEOUT  = 2
-    WAIT_TIMEOUT   = 15
+    START_TIMEOUT = 2
+    WAIT_TIMEOUT = 15
     SLEEP_THRESHOLD = 10
-    MAX_RETRIES    = 10
+    MAX_RETRIES = 10
     ACKS_THRESHOLD = 10
-    PING_INTERVAL  = 5
+    PING_INTERVAL = 5
     STORED_MSG_IDS_MAX_SIZE = 500
 
     MAX_DECODE_ERRORS = 3
 
-    BACKOFF_INITIAL    = 1.0
+    BACKOFF_INITIAL = 1.0
     BACKOFF_MULTIPLIER = 2.0
-    BACKOFF_MAX        = 30.0
+    BACKOFF_MAX = 30.0
 
     TRANSPORT_ERRORS = {
         404: "auth key not found",
@@ -65,18 +63,18 @@ class Session:
         is_media: bool = False,
         is_cdn: bool = False
     ):
-        self.client    = client
-        self.dc_id     = dc_id
-        self.auth_key  = auth_key
+        self.client = client
+        self.dc_id = dc_id
+        self.auth_key = auth_key
         self.test_mode = test_mode
-        self.is_media  = is_media
-        self.is_cdn    = is_cdn
+        self.is_media = is_media
+        self.is_cdn = is_cdn
 
         self.connection: Optional[Connection] = None
 
         self.auth_key_id = sha1(auth_key).digest()[-8:]
 
-        self.session_id  = os.urandom(8)
+        self.session_id = os.urandom(8)
         self.msg_factory = MsgFactory()
 
         self.salt = 0
@@ -87,14 +85,14 @@ class Session:
 
         self.stored_msg_ids = []
 
-        self.ping_task       = None
+        self.ping_task = None
         self.ping_task_event = asyncio.Event()
 
         self.recv_task = None
 
         self.is_started = asyncio.Event()
 
-        self._restart_lock    = asyncio.Lock()
+        self._restart_lock = asyncio.Lock()
         self._generation: int = 0
         self._restart_backoff: float = 0.0
         self._decode_error_count: int = 0
@@ -154,8 +152,8 @@ class Session:
             else:
                 break
 
-        self._generation        += 1
-        self._restart_backoff    = 0.0
+        self._generation += 1
+        self._restart_backoff = 0.0
         self._decode_error_count = 0
         self.is_started.set()
         log.info("Session started (generation=%d)", self._generation)
@@ -196,48 +194,18 @@ class Session:
         log.info("Session stopped")
 
     async def restart(self):
-        """Public restart entry-point (called directly, not via _schedule_restart).
-        Serialised by _restart_lock; no generation check because the caller
-        explicitly requested a restart (e.g. auth.py, test code)."""
         async with self._restart_lock:
             log.info("Session restarting (explicit call)")
             await self.stop()
             await self.start()
 
     def _schedule_restart(self, reason: str) -> None:
-        """
-        Schedule a conditional restart.
-
-        Captures the current generation so that the restart task becomes a
-        no-op if the session has already been restarted by the time it runs.
-        This is the core fix for the sequential restart storm:
-
-            recv_worker  → create_task(restart())   ← fires, session restarts, gen++
-            ping_worker  → create_task(restart())   ← stale gen → IGNORED
-            handle_packet→ create_task(restart())   ← stale gen → IGNORED
-        """
         gen = self._generation
         asyncio.get_running_loop().create_task(
             self._do_scheduled_restart(gen, reason)
         )
 
     async def _do_scheduled_restart(self, gen: int, reason: str) -> None:
-        """
-        Execute a scheduled restart only if it is still relevant.
-
-        Relevance rules
-        ---------------
-        1. Generation match: if start() already ran since this task was
-           created, the connection is healthy again — drop the request.
-        2. Lock deduplication: if a restart is already running for THIS
-           generation, wait for it to complete and then exit; the running
-           restart will fix everything.
-        3. Double-check after lock: another coroutine may have completed
-           between our locked() check and our acquire — recheck generation.
-        4. Exponential backoff: applied before stop/start to avoid hammering
-           Telegram on persistent network failures.
-        """
-
         if gen != self._generation:
             log.debug(
                 "Restart request ignored — stale generation %d (current %d): %s",
@@ -321,14 +289,14 @@ class Session:
 
         log.debug("Received: %s", data)
 
-        pending_acks    = self.pending_acks
-        results         = self.results
-        stored_msg_ids  = self.stored_msg_ids
-        max_stored      = Session.STORED_MSG_IDS_MAX_SIZE
-        MsgId_now       = MsgId
+        pending_acks = self.pending_acks
+        results = self.results
+        stored_msg_ids = self.stored_msg_ids
+        max_stored = Session.STORED_MSG_IDS_MAX_SIZE
+        MsgId_now = MsgId
 
         for msg in messages:
-            if msg.seq_no & 1:  
+            if msg.seq_no & 1:
                 msg_id = msg.msg_id
                 if msg_id in pending_acks:
                     continue
@@ -351,7 +319,7 @@ class Session:
                             "The msg_id is equal to any of the stored values"
                         )
 
-                    time_diff = (msg_id - MsgId_now()) / 4294967296  
+                    time_diff = (msg_id - MsgId_now()) / 4294967296
 
                     if time_diff > 30:
                         raise SecurityCheckMismatch(
@@ -497,7 +465,7 @@ class Session:
 
         while True:
             message = self.msg_factory(data)
-            msg_id  = message.msg_id
+            msg_id = message.msg_id
 
             if wait_response:
                 result_obj = Result(loop)
@@ -530,7 +498,7 @@ class Session:
                 pass
 
             result = self.results.pop(msg_id, None)
-            value  = result.value if result is not None else None
+            value = result.value if result is not None else None
 
             if value is None:
                 raise TimeoutError("Request timed out")
