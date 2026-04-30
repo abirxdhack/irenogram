@@ -1,4 +1,3 @@
-
 import asyncio
 import functools
 import inspect
@@ -99,6 +98,10 @@ class Client(Methods):
             the first request will be made via IPv4,
             after which the server address will be updated (works both ways).
             Defaults to False (IPv4).
+
+        alt_port (``bool``, *optional*):
+            Pass True to connect to Telegram using the alternative port 5222 instead of 443.
+            Defaults to False (port 443).
 
         proxy (``dict`` | ``str``, *optional*):
             The Proxy settings as dict.
@@ -269,6 +272,7 @@ class Client(Methods):
         lang_code: str = LANG_CODE,
         system_lang_code: str = SYSTEM_LANG_CODE,
         ipv6: Optional[bool] = False,
+        alt_port: Optional[bool] = False,
         proxy: Optional[Union[dict, str]] = None,
         test_mode: Optional[bool] = False,
         bot_token: Optional[str] = None,
@@ -313,6 +317,7 @@ class Client(Methods):
         self.lang_code = lang_code.lower()
         self.system_lang_code = system_lang_code.lower()
         self.ipv6 = ipv6
+        self.alt_port = alt_port
         self.proxy = proxy
         self.test_mode = test_mode
         self.bot_token = bot_token
@@ -909,8 +914,6 @@ class Client(Methods):
                 await Auth(
                     self,
                     await self.storage.dc_id(),
-                    await self.storage.server_address(),
-                    await self.storage.port(),
                     await self.storage.test_mode()
                 ).create()
             )
@@ -1349,8 +1352,6 @@ class Client(Methods):
                 auth_key = await Auth(
                     self,
                     dc_id,
-                    server_address,
-                    port,
                     await self.storage.test_mode()
                 ).create()
             else:
@@ -1359,8 +1360,6 @@ class Client(Methods):
         session = Session(
             self,
             dc_id,
-            server_address,
-            port,
             auth_key,
             await self.storage.test_mode(),
             is_media=is_media
