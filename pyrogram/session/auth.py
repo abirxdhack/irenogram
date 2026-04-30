@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 import struct
@@ -30,13 +29,13 @@ class Auth:
         dc_id: int,
         test_mode: bool
     ):
-        self.dc_id              = dc_id
-        self.test_mode          = test_mode
-        self.ipv6               = client.ipv6
-        self.alt_port           = client.alt_port
-        self.proxy              = client.proxy
+        self.dc_id = dc_id
+        self.test_mode = test_mode
+        self.ipv6 = client.ipv6
+        self.alt_port = client.alt_port
+        self.proxy = client.proxy
         self.connection_factory = client.connection_factory
-        self.protocol_factory   = client.protocol_factory
+        self.protocol_factory = client.protocol_factory
 
         self.connection: Optional[Connection] = None
 
@@ -63,10 +62,6 @@ class Auth:
         return self.unpack(response)
 
     async def create(self):
-        """
-        https://core.telegram.org/mtproto/auth_key
-        https://core.telegram.org/mtproto/samples-auth_key
-        """
         retries_left = self.MAX_RETRIES
 
         while True:
@@ -140,7 +135,7 @@ class Auth:
                 encrypted_answer = server_dh_params.encrypted_answer
 
                 server_nonce_bytes = server_nonce.to_bytes(16, "little", signed=True)
-                new_nonce_bytes    = new_nonce.to_bytes(32, "little", signed=True)
+                new_nonce_bytes = new_nonce.to_bytes(32, "little", signed=True)
 
                 tmp_aes_key = (
                     sha1(new_nonce_bytes + server_nonce_bytes).digest()
@@ -154,19 +149,19 @@ class Auth:
                 )
 
                 answer_with_hash = aes.ige256_decrypt(encrypted_answer, tmp_aes_key, tmp_aes_iv)
-                answer            = answer_with_hash[20:]
+                answer = answer_with_hash[20:]
 
                 server_dh_inner_data = TLObject.read(BytesIO(answer))
 
                 log.debug("Server DH inner data: %s", server_dh_inner_data)
 
-                dh_prime   = int.from_bytes(server_dh_inner_data.dh_prime, "big")
+                dh_prime = int.from_bytes(server_dh_inner_data.dh_prime, "big")
                 delta_time = server_dh_inner_data.server_time - time.time()
 
                 log.debug("Delta time: %s", round(delta_time, 3))
 
-                g   = server_dh_inner_data.g
-                b   = int.from_bytes(urandom(256), "big")
+                g = server_dh_inner_data.g
+                b = int.from_bytes(urandom(256), "big")
                 g_b = pow(g, b, dh_prime).to_bytes(256, "big")
 
                 retry_id = 0
@@ -192,7 +187,7 @@ class Auth:
                     )
                 )
 
-                g_a      = int.from_bytes(server_dh_inner_data.g_a, "big")
+                g_a = int.from_bytes(server_dh_inner_data.g_a, "big")
                 auth_key = pow(g_a, b, dh_prime).to_bytes(256, "big")
                 server_nonce = server_nonce.to_bytes(16, "little", signed=True)
 
