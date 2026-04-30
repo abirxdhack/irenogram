@@ -259,14 +259,6 @@ class SQLiteStorage(Storage):
                 )
 
                 await self.dc_id(dc_id)
-
-                if test_mode:
-                    await self.server_address(TEST[dc_id])
-                    await self.port(80)
-                else:
-                    await self.server_address(PROD[dc_id])
-                    await self.port(443)
-
                 await self.api_id(api_id)
                 await self.test_mode(test_mode)
                 await self.auth_key(auth_key)
