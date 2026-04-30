@@ -134,12 +134,6 @@ class SQLiteStorage(Storage):
     USERNAME_TTL = 8 * 60 * 60
     FILE_EXTENSION = ".session"
 
-    SESSION_STRING_SIZE = 351
-    SESSION_STRING_SIZE_64 = 356
-    SESSION_STRING_FORMAT = ">BI?256sI?"
-    OLD_SESSION_STRING_FORMAT = ">BI?256sI?"
-    OLD_SESSION_STRING_FORMAT_64 = ">BQ?256sQ?"
-
     def __init__(
         self,
         name: str,
