@@ -1,5 +1,5 @@
 __fork_name__ = "Irenogram"
-__version__ = "2.3.80"
+__version__ = "2.3.81"
 __license__ = "GNU Lesser General Public License v3.0 (LGPL-3.0)"
 __copyright__ = "Copyright (C) 2025-present Abir Arafat Chawdhury <https://github.com/abirxdhack>"
 
