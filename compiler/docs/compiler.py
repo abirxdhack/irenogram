@@ -379,8 +379,12 @@ def _write_method_rst(root, actual_method_name):
 
 
 def _write_type_rst(root, type_name):
-    # Build combined exclusion list: internal implementation details +
-    # bound methods that have their own dedicated documentation pages.
+    """Write the RST page for a high-level type.
+
+    The exclusion list combines the internal implementation helpers
+    with the bound methods that ship dedicated documentation pages,
+    so that ``automodule`` does not duplicate their output here.
+    """
     excluded = sorted(INTERNAL_METHODS | BOUND_METHODS)
     exclude_str = ", ".join(excluded)
 
