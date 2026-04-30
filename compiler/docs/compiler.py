@@ -1,768 +1,661 @@
-import ast
+import json
 import os
 import re
 import shutil
-from dataclasses import dataclass
-from typing import Literal
+from functools import partial
+from pathlib import Path
+from typing import NamedTuple, List, Tuple
 
-HOME = "compiler/docs"
-DESTINATION = "docs/source/telegram"
-IRENOGRAM_API_DEST = "docs/source/api"
+HOME_PATH = Path("compiler/api")
+DESTINATION_PATH = Path("pyrogram/raw")
+NOTICE_PATH = "NOTICE"
 
-FUNCTIONS_PATH = "pyrogram/raw/functions"
-TYPES_PATH = "pyrogram/raw/types"
-BASE_PATH = "pyrogram/raw/base"
+SECTION_RE = re.compile(r"---(\w+)---")
+LAYER_RE = re.compile(r"//\sLAYER\s(\d+)")
+COMBINATOR_RE = re.compile(r"^([\w.]+)#([0-9a-f]+)\s(?:.*)=\s([\w<>.]+);$", re.MULTILINE)
+ARGS_RE = re.compile(r"[^{](\w+):([\w?!.<>#]+)")
+FLAGS_RE = re.compile(r"flags(\d?)\.(\d+)\?")
+FLAGS_RE_2 = re.compile(r"flags(\d?)\.(\d+)\?([\w<>.]+)")
+FLAGS_RE_3 = re.compile(r"flags(\d?):#")
+INT_RE = re.compile(r"int(\d+)")
 
-FUNCTIONS_BASE = "functions"
-TYPES_BASE = "types"
-BASE_BASE = "base"
+CORE_TYPES = ["int", "long", "int128", "int256", "double", "bytes", "string", "Bool", "true"]
 
-STANDALONE_METHODS = {"idle", "compose"}
+WARNING = """
+""".strip()
 
-INTERNAL_METHODS = {
-    "decorator", "do_it", "get_chunk", "get_session", "make_input",
-    "signal_handler", "worker", "count_populated_attributes", "callback",
-    "check", "delete_waiter", "init", "markdown", "html", "link", "content",
-    "md_text", "html_text",
-    "forward_from", "forward_sender_name", "forward_from_chat",
-    "forward_from_message_id", "forward_signature", "forward_date",
-    "write", "read", "default", "full_name", "mention", "format",
-    "stop_propagation", "continue_propagation", "matches", "count_populated",
-}
+open = partial(open, encoding="utf-8")
 
-BOUND_METHODS = {
-    "add_members", "answer", "approve", "archive", "ban_member", "block",
-    "click", "copy", "decline", "delete", "download",
-    "edit", "edit_caption", "edit_media", "edit_reply_markup", "edit_text",
-    "edit_message_text", "edit_message_caption", "edit_message_media",
-    "edit_message_reply_markup",
-    "export_link", "forward", "get_chat", "get_member", "get_members",
-    "join", "leave", "mark_unread", "pin", "promote_member", "react", "read",
-    "reply", "reply_animation", "reply_audio", "reply_cached_media",
-    "reply_chat_action", "reply_contact", "reply_document", "reply_game",
-    "reply_inline_bot_result", "reply_location", "reply_media_group",
-    "reply_photo", "reply_poll", "reply_sticker", "reply_text", "reply_venue",
-    "reply_video", "reply_video_note", "reply_voice", "reply_web_page",
-    "restrict_member", "set_description", "set_photo", "set_protected_content",
-    "set_title", "stop", "terminate", "unarchive", "unban_member", "unblock",
-    "unpin", "unpin_all_messages",
-}
+types_to_constructors = {}
+types_to_functions = {}
+constructors_to_functions = {}
+namespaces_to_types = {}
+namespaces_to_constructors = {}
+namespaces_to_functions = {}
 
-toctree = ""
+try:
+    with open("docs_static/docs.json") as f:
+        docs = json.load(f)
+except FileNotFoundError:
+    docs = {
+        "type": {},
+        "constructor": {},
+        "method": {}
+    }
 
 
-def snek(s: str):
+class Combinator(NamedTuple):
+    section: str
+    qualname: str
+    namespace: str
+    name: str
+    id: str
+    has_flags: bool
+    args: List[Tuple[str, str]]
+    qualtype: str
+    typespace: str
+    type: str
+
+
+def snake(s: str):
+
     s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s).lower()
 
 
-def get_title_list(s):
-    return [i.strip() for i in [j.strip() for j in s.split("\n") if j] if i]
+def camel(s: str):
+    return "".join([i[0].upper() + i[1:] for i in s.split("_")])
 
 
-NodeType = Literal["class", "union"]
+def get_type_hint(type: str) -> str:
+    is_flag = FLAGS_RE.match(type)
+    is_core = False
 
+    if is_flag:
+        type = type.split("?")[1]
 
-@dataclass
-class NodeInfo:
-    name: str
-    type: NodeType
+    if type in CORE_TYPES:
+        is_core = True
 
-
-def _extract_union_name(node: ast.AST):
-    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Subscript):
-        if isinstance(node.value.value, ast.Name) and node.value.value.id == "Union":
-            if isinstance(node.targets[0], ast.Name):
-                return node.targets[0].id
-
-
-def _extract_class_name(node: ast.AST):
-    if isinstance(node, ast.ClassDef):
-        return node.name
-
-
-def parse_node_info(node: ast.AST):
-    class_name = _extract_class_name(node)
-    if class_name:
-        return NodeInfo(name=class_name, type="class")
-    union_name = _extract_union_name(node)
-    if union_name:
-        return NodeInfo(name=union_name, type="union")
-    return None
-
-
-def _get_actual_method_name(filepath: str):
-    try:
-        with open(filepath, encoding="utf-8") as fh:
-            src = fh.read()
-        tree = ast.parse(src)
-    except Exception:
-        return None
-
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            name = node.name
-            if not name.startswith("_") and name not in INTERNAL_METHODS:
-                return name
-    return None
-
-
-def generate(source_path, base):
-    all_entities = {}
-
-    def build(path, level=0):
-        last = path.split("/")[-1]
-
-        for i in sorted(os.listdir(path)):
-            try:
-                if not i.startswith("__"):
-                    build("/".join([path, i]), level=level + 1)
-            except NotADirectoryError:
-                with open(path + "/" + i, encoding="utf-8") as f:
-                    try:
-                        p = ast.parse(f.read())
-                    except SyntaxError:
-                        continue
-
-                for node in ast.walk(p):
-                    node_info = parse_node_info(node)
-                    if node_info:
-                        break
-                else:
-                    continue
-
-                full_path = os.path.basename(path) + "/" + snek(node_info.name).replace("_", "-") + ".rst"
-
-                if level:
-                    full_path = base + "/" + full_path
-
-                namespace = path.split("/")[-1]
-                if namespace in ["base", "types", "functions"]:
-                    namespace = ""
-
-                full_name = f"{(namespace + '.') if namespace else ''}{node_info.name}"
-
-                os.makedirs(os.path.dirname(DESTINATION + "/" + full_path), exist_ok=True)
-
-                with open(DESTINATION + "/" + full_path, "w", encoding="utf-8") as f:
-                    title_markup = "=" * len(full_name)
-                    full_class_path = "pyrogram.raw.{}".format(
-                        ".".join(full_path.split("/")[:-1]) + "." + node_info.name
-                    )
-
-                    f.write(full_name + "\n")
-                    f.write(title_markup + "\n\n")
-
-                    if node_info.type == "class":
-                        f.write(".. autoclass:: {}()\n".format(full_class_path))
-                    elif node_info.type == "union":
-                        f.write(".. autodata:: {}\n".format(full_class_path))
-                        f.write("    :annotation:\n")
-                    else:
-                        raise ValueError("Unknown node type: `{}`".format(node_info.type))
-
-                    f.write("\n")
-
-                if last not in all_entities:
-                    all_entities[last] = []
-
-                all_entities[last].append(node_info.name)
-
-    build(source_path)
-
-    for k, v in sorted(all_entities.items()):
-        v = sorted(v)
-        entities = []
-
-        for i in v:
-            entities.append('{} <{}>'.format(i, snek(i).replace("_", "-")))
-
-        if k != base:
-            inner_path = base + "/" + k + "/index" + ".rst"
-            module = "pyrogram.raw.{}.{}".format(base, k)
+        if type == "long" or "int" in type:
+            type = "int"
+        elif type == "double":
+            type = "float"
+        elif type == "string":
+            type = "str"
+        elif type in ["Bool", "true"]:
+            type = "bool"
         else:
-            for i in sorted(list(all_entities), reverse=True):
-                if i != base:
-                    entities.insert(0, "{0}/index".format(i))
+            type = "bytes"
 
-            inner_path = base + "/index" + ".rst"
-            module = "pyrogram.raw.{}".format(base)
+    if type in ["Object", "!X"]:
+        return "TLObject"
 
-        with open(DESTINATION + "/" + inner_path, "w", encoding="utf-8") as f:
-            if k == base:
-                f.write(":tocdepth: 1\n\n")
-                k = "Raw " + k
+    if re.match("^vector", type, re.I):
+        is_core = True
 
+        sub_type = type.split("<")[1][:-1]
+        type = f"List[{get_type_hint(sub_type)}]"
+
+    if is_core:
+        return f"Optional[{type}] = None" if is_flag else type
+    else:
+        ns, name = type.split(".") if "." in type else ("", type)
+        type = '"raw.base.' + ".".join([ns, name]).strip(".") + '"'
+
+        return f'{type}{" = None" if is_flag else ""}'
+
+
+def sort_args(args):
+    """Put flags at the end"""
+    args = args.copy()
+    flags = [i for i in args if FLAGS_RE.match(i[1])]
+
+    for i in flags:
+        args.remove(i)
+
+    for i in args[:]:
+        if re.match(r"flags\d?", i[0]) and i[1] == "#":
+            args.remove(i)
+
+    return args + flags
+
+
+def remove_whitespaces(source: str) -> str:
+    """Remove whitespaces from blank lines"""
+    lines = source.split("\n")
+
+    for i, _ in enumerate(lines):
+        if re.match(r"^\s+$", lines[i]):
+            lines[i] = ""
+
+    return "\n".join(lines)
+
+
+def get_docstring_arg_type(t: str):
+    if t in CORE_TYPES:
+        if t == "long":
+            return "``int`` ``64-bit``"
+        elif "int" in t:
+            size = INT_RE.match(t)
+            return f"``int`` ``{size.group(1)}-bit``" if size else "``int`` ``32-bit``"
+        elif t == "double":
+            return "``float`` ``64-bit``"
+        elif t == "string":
+            return "``str``"
+        elif t == "true":
+            return "``bool``"
+        else:
+            return f"``{t.lower()}``"
+    elif t == "TLObject" or t == "X":
+        return "Any object from :obj:`~pyrogram.raw.types`"
+    elif t == "!X":
+        return "Any function from :obj:`~pyrogram.raw.functions`"
+    elif t.lower().startswith("vector"):
+        return "List of " + get_docstring_arg_type(t.split("<", 1)[1][:-1])
+    else:
+        return f":obj:`{t} <pyrogram.raw.base.{t}>`"
+
+
+def get_references(t: str, kind: str):
+    if kind == "constructors":
+        t = constructors_to_functions.get(t)
+    elif kind == "types":
+        t = types_to_functions.get(t)
+    else:
+        raise ValueError("Invalid kind")
+
+    if t:
+        return "\n            ".join(t), len(t)
+
+    return None, 0
+
+
+def _build_usable_by_html(usable_by: str) -> str:
+    """Build the inline RST raw-HTML block for the Usable-by row.
+
+    Returns an empty string when *usable_by* is empty so that methods
+    without a known restriction are rendered without the row rather than
+    showing misleading information.
+    """
+    if not usable_by:
+        return ""
+
+    users_icon = "fa-check" if usable_by == "users" else "fa-xmark"
+    users_color = "var(--color-green)" if usable_by == "users" else "var(--color-red)"
+    bots_icon = "fa-check" if usable_by == "bots" else "fa-xmark"
+    bots_color = "var(--color-green)" if usable_by == "bots" else "var(--color-red)"
+
+    return (
+        "\n    .. raw:: html\n\n"
+        f'        <strong>Usable by</strong>\n'
+        f'        <span class="usable-by"><i class="fa-solid {users_icon}" style="color: {users_color}"></i> Users</span>\n'
+        f'        <span class="usable-by"><i class="fa-solid {bots_icon}" style="color: {bots_color}"></i> Bots</span>\n\n'
+    )
+
+
+def start(format: bool = False):
+    shutil.rmtree(DESTINATION_PATH / "types", ignore_errors=True)
+    shutil.rmtree(DESTINATION_PATH / "functions", ignore_errors=True)
+    shutil.rmtree(DESTINATION_PATH / "base", ignore_errors=True)
+
+    with open(HOME_PATH / "source/auth_key.tl") as f1,\
+        open(HOME_PATH / "source/sys_msgs.tl") as f2,\
+        open(HOME_PATH / "source/main_api.tl") as f3:
+        schema = (f1.read() + f2.read() + f3.read()).splitlines()
+
+    with open(HOME_PATH / "template/type.txt") as f1,\
+        open(HOME_PATH / "template/combinator.txt") as f2:
+        type_tmpl = f1.read()
+        combinator_tmpl = f2.read()
+
+    with open(NOTICE_PATH, encoding="utf-8") as f:
+        notice = []
+
+        for line in f.readlines():
+            notice.append(f"#  {line}".strip())
+
+        notice = "\n".join(notice)
+
+    section = None
+    layer = None
+    combinators = []
+
+    for line in schema:
+
+        section_match = SECTION_RE.match(line)
+        if section_match:
+            section = section_match.group(1)
+            continue
+
+        layer_match = LAYER_RE.match(line)
+        if layer_match:
+            layer = layer_match.group(1)
+            continue
+
+        combinator_match = COMBINATOR_RE.match(line)
+        if combinator_match:
+
+            qualname, id, qualtype = combinator_match.groups()
+
+            namespace, name = qualname.split(".") if "." in qualname else ("", qualname)
+            name = camel(name)
+            qualname = ".".join([namespace, name]).lstrip(".")
+
+            typespace, type = qualtype.split(".") if "." in qualtype else ("", qualtype)
+            type = camel(type)
+            qualtype = ".".join([typespace, type]).lstrip(".")
+
+            has_flags = not not FLAGS_RE_3.findall(line)
+
+            args = ARGS_RE.findall(line)
+
+            for i, item in enumerate(args):
+                if item[0] == "self":
+                    args[i] = ("is_self", item[1])
+
+                if item[0] == "from":
+                    args[i] = ("from_peer", item[1])
+
+            combinator = Combinator(
+                section=section,
+                qualname=qualname,
+                namespace=namespace,
+                name=name,
+                id=f"0x{id}",
+                has_flags=has_flags,
+                args=args,
+                qualtype=qualtype,
+                typespace=typespace,
+                type=type
+            )
+
+            combinators.append(combinator)
+
+    for c in combinators:
+        qualtype = c.qualtype
+
+        if qualtype.startswith("Vector"):
+            qualtype = qualtype.split("<")[1][:-1]
+
+        d = types_to_constructors if c.section == "types" else types_to_functions
+
+        if qualtype not in d:
+            d[qualtype] = []
+
+        d[qualtype].append(c.qualname)
+
+        if c.section == "types":
+            key = c.namespace
+
+            if key not in namespaces_to_types:
+                namespaces_to_types[key] = []
+
+            if c.type not in namespaces_to_types[key]:
+                namespaces_to_types[key].append(c.type)
+
+    for k, v in types_to_constructors.items():
+        for i in v:
+            try:
+                constructors_to_functions[i] = types_to_functions[k]
+            except KeyError:
+                pass
+
+    for qualtype in types_to_constructors:
+        typespace, type = qualtype.split(".") if "." in qualtype else ("", qualtype)
+        dir_path = DESTINATION_PATH / "base" / typespace
+
+        module = type
+
+        if module == "Updates":
+            module = "UpdatesT"
+
+        os.makedirs(dir_path, exist_ok=True)
+
+        constructors = sorted(types_to_constructors[qualtype])
+        constr_count = len(constructors)
+        items = "\n            ".join([f"{c}" for c in constructors])
+
+        type_docs = docs["type"].get(qualtype, None)
+
+        if type_docs:
+            type_docs = type_docs["desc"]
+        else:
+            type_docs = "Telegram API base type."
+
+        docstring = type_docs
+
+        docstring += f"\n\n    Constructors:\n" \
+                     f"        This base type has {constr_count} constructor{'s' if constr_count > 1 else ''} available.\n\n" \
+                     f"        .. currentmodule:: pyrogram.raw.types\n\n" \
+                     f"        .. autosummary::\n" \
+                     f"            :nosignatures:\n\n" \
+                     f"            {items}"
+
+        references, ref_count = get_references(qualtype, "types")
+
+        if references:
+            docstring += f"\n\n    Functions:\n        This object can be returned by " \
+                         f"{ref_count} function{'s' if ref_count > 1 else ''}.\n\n" \
+                         f"        .. currentmodule:: pyrogram.raw.functions\n\n" \
+                         f"        .. autosummary::\n" \
+                         f"            :nosignatures:\n\n" \
+                         f"            " + references
+
+        with open(dir_path / f"{snake(module)}.py", "w") as f:
             f.write(
-                toctree.format(
-                    title=k.title(),
-                    title_markup="=" * len(k),
-                    module=module,
-                    entities="\n    ".join(entities)
+                type_tmpl.format(
+                    notice=notice,
+                    warning=WARNING,
+                    docstring=docstring,
+                    name=type,
+                    qualname=qualtype,
+                    types=", ".join([f"raw.types.{c}" for c in constructors]),
+                    doc_name=snake(type).replace("_", "-")
                 )
             )
 
-            f.write("\n")
+    for c in combinators:
+        sorted_args = sort_args(c.args)
 
+        arguments = (
+            (", *, " if c.args else "") +
+            (", ".join(
+                [f"{i[0]}: {get_type_hint(i[1])}"
+                 for i in sorted_args]
+            ) if sorted_args else "")
+        )
 
-INTERNAL_CLASSES = {"Str", "Link", "Object", "AutoName"}
+        fields = "\n        ".join(
+            [f"self.{i[0]} = {i[0]}"
+             for i in sorted_args]
+        ) if sorted_args else "pass"
 
+        docstring = ""
+        docstring_args = []
 
-def _get_classes_from_dir(path):
-    classes = []
-    for root, dirs, files in os.walk(path):
-        dirs[:] = sorted(d for d in dirs if not d.startswith("__"))
-        for fname in sorted(files):
-            if fname.endswith(".py") and not fname.startswith("__"):
-                fpath = os.path.join(root, fname)
-                try:
-                    with open(fpath, encoding="utf-8") as fh:
-                        content = fh.read()
-                    tree = ast.parse(content)
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-                            if node.name not in INTERNAL_CLASSES:
-                                classes.append(node.name)
-                except Exception:
-                    pass
-    return sorted(set(classes))
-
-
-def _discover_methods(methods_root):
-    dir_display_names = {
-        "account": "Account",
-        "advanced": "Advanced",
-        "auth": "Authorization",
-        "bots": "Bots",
-        "business": "Business",
-        "chats": "Chats",
-        "contacts": "Contacts",
-        "invite_links": "Invite Links",
-        "messages": "Messages",
-        "password": "Password",
-        "payments": "Payments",
-        "phone": "Phone",
-        "premium": "Premium",
-        "pyromod": "Pyromod",
-        "stickers": "Stickers",
-        "stories": "Stories",
-        "users": "Users",
-        "utilities": "Utilities",
-    }
-
-    categories = {}
-    seen_actual = set()
-    subdir_order = [
-        "account", "advanced", "auth", "bots", "business", "chats",
-        "contacts", "invite_links", "messages", "password", "payments",
-        "phone", "premium", "pyromod", "stickers", "stories", "users", "utilities",
-    ]
-    all_subdirs = sorted(os.listdir(methods_root))
-    ordered = [s for s in subdir_order if s in all_subdirs] + \
-              [s for s in all_subdirs if s not in subdir_order]
-    for subdir in ordered:
-        subdir_path = os.path.join(methods_root, subdir)
-        if not os.path.isdir(subdir_path) or subdir.startswith("__") or subdir == "decorators":
-            continue
-        methods = []
-        for fname in sorted(os.listdir(subdir_path)):
-            if fname.endswith(".py") and not fname.startswith("__"):
-                fpath = os.path.join(subdir_path, fname)
-                actual_name = _get_actual_method_name(fpath)
-                if actual_name and actual_name not in INTERNAL_METHODS and actual_name not in seen_actual:
-                    methods.append((fname[:-3], actual_name))
-                    seen_actual.add(actual_name)
-        if methods:
-            display = dir_display_names.get(subdir, subdir.replace("_", " ").title())
-            categories[subdir] = (display, methods)
-    return categories
-
-
-def _discover_decorators(methods_root):
-    decorators_path = os.path.join(methods_root, "decorators")
-    decorators = []
-    seen = set()
-    if os.path.isdir(decorators_path):
-        for fname in sorted(os.listdir(decorators_path)):
-            if fname.endswith(".py") and not fname.startswith("__"):
-                fpath = os.path.join(decorators_path, fname)
-                actual_name = _get_actual_method_name(fpath)
-                if actual_name and actual_name not in seen:
-                    decorators.append((fname[:-3], actual_name))
-                    seen.add(actual_name)
-    return decorators
-
-
-def _discover_types(types_root):
-    dir_display_names = {
-        "messages_and_media": "Messages & Media",
-        "user_and_chats": "Users & Chats",
-        "bots_and_keyboards": "Bot Keyboards",
-        "inline_mode": "Inline Mode",
-        "input_media": "Input Media",
-        "input_message_content": "Input Message Content",
-        "authorization": "Authorization",
-        "payments": "Payments",
-        "business": "Business",
-        "pyromod": "Pyromod",
-    }
-    template_key_map = {
-        "messages_and_media": "messages_media",
-        "user_and_chats": "users_chats",
-        "bots_and_keyboards": "bot_keyboards",
-    }
-    categories = {}
-    seen_globally = set()
-    for subdir in sorted(os.listdir(types_root)):
-        subdir_path = os.path.join(types_root, subdir)
-        if not os.path.isdir(subdir_path) or subdir.startswith("__"):
-            continue
-        all_classes = _get_classes_from_dir(subdir_path)
-        classes = [c for c in all_classes if c not in seen_globally]
-        seen_globally.update(classes)
-        if classes:
-            key = template_key_map.get(subdir, subdir)
-            display = dir_display_names.get(subdir, subdir.replace("_", " ").title())
-            categories[key] = (display, classes)
-    return categories
-
-
-def _discover_enums(enums_root):
-    enums = []
-    for fname in sorted(os.listdir(enums_root)):
-        if fname.endswith(".py") and not fname.startswith("__"):
-            fpath = os.path.join(enums_root, fname)
-            try:
-                with open(fpath, encoding="utf-8") as fh:
-                    content = fh.read()
-                tree = ast.parse(content)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef):
-                        if not node.name.startswith("_") and node.name not in ("AutoName",):
-                            enums.append(node.name)
-            except Exception:
-                found = re.findall(r"^class\s+(\w+)\s*[\(:]", content, re.MULTILINE)
-                for c in found:
-                    if not c.startswith("_") and c != "AutoName":
-                        enums.append(c)
-    return sorted(set(enums))
-
-
-def _discover_handlers(handlers_root):
-    handlers = []
-    for fname in sorted(os.listdir(handlers_root)):
-        if fname.endswith(".py") and not fname.startswith("__"):
-            fpath = os.path.join(handlers_root, fname)
-            try:
-                with open(fpath, encoding="utf-8") as fh:
-                    content = fh.read()
-                tree = ast.parse(content)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-                        if node.name != "Handler":
-                            handlers.append(node.name)
-            except Exception:
-                pass
-    return sorted(set(handlers))
-
-
-def _write_method_rst(root, actual_method_name):
-    rst_path = os.path.join(root, "{}.rst".format(actual_method_name))
-    title = "{}()".format(actual_method_name)
-    with open(rst_path, "w", encoding="utf-8") as f2:
-        f2.write(title + "\n" + "=" * len(title) + "\n\n")
-        if actual_method_name in STANDALONE_METHODS:
-            f2.write(".. autofunction:: pyrogram.{}\n".format(actual_method_name))
+        if c.section == "functions":
+            combinator_docs = docs["method"]
         else:
-            f2.write(".. automethod:: pyrogram.Client.{}()\n".format(actual_method_name))
-        f2.write("\n")
+            combinator_docs = docs["constructor"]
 
+        for i, arg in enumerate(sorted_args):
+            arg_name, arg_type = arg
+            is_optional = FLAGS_RE.match(arg_type)
+            flag_number = is_optional.group(1) if is_optional else -1
+            arg_type = arg_type.split("?")[-1]
 
-def _write_type_rst(root, type_name):
-    # Build combined exclusion list: internal implementation details +
-    # bound methods that have their own dedicated documentation pages.
-    excluded = sorted(INTERNAL_METHODS | BOUND_METHODS)
-    exclude_str = ", ".join(excluded)
+            arg_docs = combinator_docs.get(c.qualname, None)
 
-    with open(os.path.join(root, "{}.rst".format(type_name)), "w", encoding="utf-8") as f2:
-        title = "{}".format(type_name)
-        f2.write(title + "\n" + "=" * len(title) + "\n\n")
-        f2.write(".. autoclass:: pyrogram.types.{}()\n".format(type_name))
-        f2.write("    :members:\n")
-        f2.write("    :show-inheritance:\n")
-        f2.write("    :exclude-members: {}\n".format(exclude_str))
-        f2.write("\n")
+            if arg_docs:
+                arg_docs = arg_docs["params"].get(arg_name, "N/A")
+            else:
+                arg_docs = "N/A"
 
-
-def _generate_decorators_index(dest_root, decorators):
-    idx_path = os.path.join(dest_root, "decorators", "index.rst")
-    os.makedirs(os.path.dirname(idx_path), exist_ok=True)
-    with open(idx_path, "w", encoding="utf-8") as f:
-        f.write("Decorators\n")
-        f.write("==========\n\n")
-        f.write("Decorators are used to register handlers on a :class:`~pyrogram.Client` instance.\n\n")
-        f.write(".. hlist::\n")
-        f.write("    :columns: 2\n\n")
-        for _fname, actual in decorators:
-            f.write("    * :doc:`{0}() <Client.{0}>`\n".format(actual))
-        f.write("\n")
-        f.write(".. toctree::\n")
-        f.write("    :hidden:\n\n")
-        for _fname, actual in decorators:
-            f.write("    Client.{} <Client.{}>\n".format(actual, actual))
-        f.write("\n")
-
-
-def _generate_decorator_rst(dest_root, actual_method_name):
-    dec_dir = os.path.join(dest_root, "decorators")
-    os.makedirs(dec_dir, exist_ok=True)
-    rst_name = "Client.{}.rst".format(actual_method_name)
-    rst_path = os.path.join(dec_dir, rst_name)
-    title = "Client.{}()".format(actual_method_name)
-    with open(rst_path, "w", encoding="utf-8") as f:
-        f.write(title + "\n" + "=" * len(title) + "\n\n")
-        f.write(".. automethod:: pyrogram.Client.{}()\n\n".format(actual_method_name))
-
-
-def _generate_handlers_index(dest_root, handlers):
-    handlers_dir = os.path.join(dest_root, "handlers")
-    os.makedirs(handlers_dir, exist_ok=True)
-    idx_path = os.path.join(handlers_dir, "index.rst")
-    with open(idx_path, "w", encoding="utf-8") as f:
-        f.write("Update Handlers\n")
-        f.write("===============\n\n")
-        f.write("Handlers are used with :meth:`~pyrogram.Client.add_handler` to process incoming updates.\n\n")
-        f.write(".. currentmodule:: pyrogram.handlers\n\n")
-        f.write(".. hlist::\n")
-        f.write("    :columns: 2\n\n")
-        for h in handlers:
-            f.write("    * :class:`{}`\n".format(h))
-        f.write("\n")
-        f.write(".. toctree::\n")
-        f.write("    :hidden:\n\n")
-        for h in handlers:
-            f.write("    {}\n".format(h))
-        f.write("\n")
-    for h in handlers:
-        handler_path = os.path.join(handlers_dir, h + ".rst")
-        with open(handler_path, "w", encoding="utf-8") as f:
-            f.write(h + "\n")
-            f.write("=" * len(h) + "\n\n")
-            f.write(".. autoclass:: pyrogram.handlers." + h + "\n")
-            f.write("    :members:\n")
-            f.write("    :show-inheritance:\n")
-
-
-def pyrogram_api():
-    project_root = os.path.normpath(os.path.join(HOME, "../.."))
-    methods_root = os.path.join(project_root, "pyrogram", "methods")
-    types_root = os.path.join(project_root, "pyrogram", "types")
-    enums_root = os.path.join(project_root, "pyrogram", "enums")
-    handlers_root = os.path.join(project_root, "pyrogram", "handlers")
-
-    method_categories = _discover_methods(methods_root)
-    decorators = _discover_decorators(methods_root)
-    handlers = _discover_handlers(handlers_root)
-
-    root = IRENOGRAM_API_DEST + "/methods"
-    shutil.rmtree(root, ignore_errors=True)
-    os.makedirs(root, exist_ok=True)
-
-    with open(root + "/index.rst", "w", encoding="utf-8") as f:
-        lines = [
-            "Available Methods",
-            "=================",
-            "",
-            "All methods listed here are bound to a :class:`~pyrogram.Client` instance.",
-            "",
-            ".. code-block:: python",
-            "",
-            "    from pyrogram import Client",
-            "",
-            '    app = Client("my_account")',
-            "",
-            "    with app:",
-            '        app.send_message(chat_id="me", text="Hi!")',
-            "",
-            "-----",
-            "",
-        ]
-
-        for subdir, (display, methods) in method_categories.items():
-            markup = "-" * len(display)
-            lines += [display, markup, ""]
-            lines += [".. hlist::", "    :columns: 3", ""]
-            for _fname, actual in methods:
-                lines.append("    * :doc:`{0}() <{0}>`".format(actual))
-            lines.append("")
-            lines += [".. toctree::", "    :hidden:", ""]
-            lines.append(
-                "    " + "\n    ".join(actual for _fname, actual in methods)
-            )
-            lines.append("")
-
-            for _fname, actual in methods:
-                _write_method_rst(root, actual)
-
-        f.write("\n".join(lines))
-
-    _generate_decorators_index(IRENOGRAM_API_DEST, decorators)
-    for _fname, actual in decorators:
-        _generate_decorator_rst(IRENOGRAM_API_DEST, actual)
-
-    _generate_handlers_index(IRENOGRAM_API_DEST, handlers)
-
-    type_categories = _discover_types(types_root)
-
-    root = IRENOGRAM_API_DEST + "/types"
-    shutil.rmtree(root, ignore_errors=True)
-    os.makedirs(root, exist_ok=True)
-
-    with open(root + "/index.rst", "w", encoding="utf-8") as f:
-        lines = [
-            "Available Types",
-            "===============",
-            "",
-            "All types listed here are available through the ``pyrogram.types`` package.",
-            "",
-            ".. code-block:: python",
-            "",
-            "    from pyrogram.types import User, Message, ...",
-            "",
-            "-----",
-            "",
-            ".. currentmodule:: pyrogram.types",
-            "",
-        ]
-
-        for key, (display, types_list) in type_categories.items():
-            markup = "-" * len(display)
-            lines += [display, markup, ""]
-            lines += [".. hlist::", "    :columns: 3", ""]
-            lines.append("    " + "\n    ".join("* :doc:`{} <{}>`".format(t, t) for t in types_list))
-            lines += ["", ".. toctree::", "    :hidden:", ""]
-            lines.append("    " + "\n    ".join(types_list))
-            lines.append("")
-
-            for t in types_list:
-                _write_type_rst(root, t)
-
-        f.write("\n".join(lines))
-
-    enums = _discover_enums(enums_root)
-
-    root = IRENOGRAM_API_DEST + "/enums"
-    shutil.rmtree(root, ignore_errors=True)
-    os.makedirs(root, exist_ok=True)
-
-    with open(root + "/cleanup.html", "w", encoding="utf-8") as f:
-        f.write("""<script>
-  document
-    .querySelectorAll("em.property")
-    .forEach((elem, i) => i !== 0 ? elem.remove() : true)
-  document
-    .querySelectorAll("a.headerlink")
-    .forEach((elem, i) => [0, 1].includes(i) ? true : elem.remove())
-</script>""")
-
-    with open(root + "/index.rst", "w", encoding="utf-8") as f:
-        f.write("Enumerations\n")
-        f.write("============\n\n")
-        f.write("All enumerations are available through the ``pyrogram.enums`` package.\n\n")
-        f.write(".. code-block:: python\n\n")
-        f.write("    from pyrogram.enums import ParseMode\n\n")
-        f.write("-----\n\n")
-        f.write(".. currentmodule:: pyrogram.enums\n\n")
-        f.write("Enumerations\n")
-        f.write("------------\n\n")
-        f.write(".. hlist::\n")
-        f.write("    :columns: 3\n\n")
-        for enum in enums:
-            f.write("    * :class:`{}`\n".format(enum))
-        f.write("\n")
-        f.write(".. toctree::\n")
-        f.write("    :hidden:\n\n")
-        f.write("    " + "\n    ".join(enums) + "\n")
-
-    for enum in enums:
-        with open(os.path.join(root, "{}.rst".format(enum)), "w", encoding="utf-8") as f2:
-            title = "{}".format(enum)
-            f2.write(title + "\n" + "=" * len(title) + "\n\n")
-            f2.write(".. autoclass:: pyrogram.enums.{}()\n".format(enum))
-            f2.write("    :members:\n")
-            f2.write("    :undoc-members:\n")
-            f2.write("    :show-inheritance:\n")
-            f2.write("    :no-index:\n")
-
-    categories = dict(
-        message="""
-        Message
-            Message.click
-            Message.delete
-            Message.download
-            Message.forward
-            Message.copy
-            Message.pin
-            Message.unpin
-            Message.edit
-            Message.edit_text
-            Message.edit_caption
-            Message.edit_media
-            Message.edit_reply_markup
-            Message.reply
-            Message.reply_text
-            Message.reply_animation
-            Message.reply_audio
-            Message.reply_cached_media
-            Message.reply_chat_action
-            Message.reply_contact
-            Message.reply_document
-            Message.reply_game
-            Message.reply_inline_bot_result
-            Message.reply_location
-            Message.reply_media_group
-            Message.reply_photo
-            Message.reply_poll
-            Message.reply_sticker
-            Message.reply_venue
-            Message.reply_video
-            Message.reply_video_note
-            Message.reply_voice
-            Message.react
-            Message.read
-        """,
-        chat="""
-        Chat
-            Chat.archive
-            Chat.unarchive
-            Chat.set_title
-            Chat.set_description
-            Chat.set_photo
-            Chat.ban_member
-            Chat.unban_member
-            Chat.restrict_member
-            Chat.promote_member
-            Chat.get_member
-            Chat.get_members
-            Chat.add_members
-            Chat.join
-            Chat.leave
-            Chat.mark_unread
-            Chat.set_protected_content
-            Chat.unpin_all_messages
-        """,
-        user="""
-        User
-            User.archive
-            User.unarchive
-            User.block
-            User.unblock
-        """,
-        callback_query="""
-        Callback Query
-            CallbackQuery.answer
-            CallbackQuery.edit_message_text
-            CallbackQuery.edit_message_caption
-            CallbackQuery.edit_message_media
-            CallbackQuery.edit_message_reply_markup
-            ChosenInlineResult.edit_message_text
-            ChosenInlineResult.edit_message_caption
-            ChosenInlineResult.edit_message_media
-            ChosenInlineResult.edit_message_reply_markup
-        """,
-        inline_query="""
-        InlineQuery
-            InlineQuery.answer
-        """,
-        pre_checkout_query="""
-        PreCheckoutQuery
-            PreCheckoutQuery.answer
-        """,
-        shipping_query="""
-        ShippingQuery
-            ShippingQuery.answer
-        """,
-        chat_join_request="""
-        ChatJoinRequest
-            ChatJoinRequest.approve
-            ChatJoinRequest.decline
-        """,
-        story="""
-        Story
-            Story.react
-            Story.download
-            Story.forward
-            Story.export_link
-        """,
-        active_session="""
-        ActiveSession
-            ActiveSession.terminate
-        """,
-        poll="""
-        Poll
-            Poll.stop
-        """,
-        chat_member_updated="""
-        ChatMemberUpdated
-            ChatMemberUpdated.get_chat
-            ChatMemberUpdated.get_member
-        """,
-    )
-
-    root = IRENOGRAM_API_DEST + "/bound-methods"
-    shutil.rmtree(root, ignore_errors=True)
-    os.makedirs(root, exist_ok=True)
-
-    with open(HOME + "/template/bound-methods.rst", encoding="utf-8") as f:
-        template = f.read()
-
-    with open(root + "/index.rst", "w", encoding="utf-8") as f:
-        fmt_keys = {}
-
-        for k, v in categories.items():
-            name, *bound_methods = get_title_list(v)
-            fmt_keys["{}_hlist".format(k)] = "\n    ".join(
-                "- :doc:`{}() <{}>`".format(bm.split(".")[-1], bm) for bm in bound_methods
-            )
-            fmt_keys["{}_toctree".format(k)] = "\n    ".join(
-                "{} <{}>".format(bm.split(".")[-1], bm) for bm in bound_methods
+            docstring_args.append(
+                "{} ({}{}):\n            {}\n".format(
+                    arg_name,
+                    get_docstring_arg_type(arg_type),
+                    ", *optional*".format(flag_number) if is_optional else "",
+                    arg_docs
+                )
             )
 
-            for bm in bound_methods:
-                with open(os.path.join(root, "{}.rst".format(bm)), "w", encoding="utf-8") as f2:
-                    title = "{}()".format(bm)
-                    f2.write(title + "\n" + "=" * len(title) + "\n\n")
-                    f2.write(".. automethod:: pyrogram.types.{}()\n".format(bm))
+        if c.section == "types":
+            constructor_docs = docs["constructor"].get(c.qualname, None)
 
-        try:
-            f.write(template.format(**fmt_keys))
-        except KeyError:
-            content = template
-            for key, val in fmt_keys.items():
-                content = content.replace("{" + key + "}", val)
-            f.write(content)
+            if constructor_docs:
+                constructor_docs = constructor_docs["desc"]
+            else:
+                constructor_docs = "Telegram API type."
 
+            docstring += constructor_docs + "\n"
+            docstring += f"\n    Constructor of :obj:`~pyrogram.raw.base.{c.qualtype}`."
+        else:
+            function_docs = docs["method"].get(c.qualname, None)
 
-def start():
-    global toctree
+            if function_docs:
+                docstring += function_docs["desc"] + "\n"
 
-    shutil.rmtree(DESTINATION, ignore_errors=True)
+                usable_by_html = _build_usable_by_html(function_docs.get("usable-by", ""))
+                if usable_by_html:
+                    docstring += usable_by_html
 
-    with open(HOME + "/template/toctree.txt", encoding="utf-8") as f:
-        toctree = f.read()
+                can_use_without_auth = function_docs.get("can_use_without_auth", False)
+                can_use_business_connection = function_docs.get("can_use_business_connection", False)
 
-    generate(TYPES_PATH, TYPES_BASE)
-    generate(FUNCTIONS_PATH, FUNCTIONS_BASE)
-    generate(BASE_PATH, BASE_BASE)
-    pyrogram_api()
+                docstring += (
+                    f"\n\n    Details:\n"
+                    f"        - Layer: ``{layer}``\n"
+                    f"        - ID: ``{c.id[2:].upper()}``\n"
+                    f"        - Can be used without authentication: ``{'Yes' if can_use_without_auth else 'No'}``\n"
+                    f"        - Can be used with a business connection: ``{'Yes' if can_use_business_connection else 'No'}``\n\n"
+                )
+            else:
+                docstring += "Telegram API function."
+                docstring += f"\n\n    Details:\n        - Layer: ``{layer}``\n        - ID: ``{c.id[2:].upper()}``\n\n"
+
+        if c.section == "types":
+            docstring += f"\n\n    Details:\n        - Layer: ``{layer}``\n        - ID: ``{c.id[2:].upper()}``\n\n"
+
+        docstring += "    Parameters:\n        " +\
+                     ("\n        ".join(docstring_args) if docstring_args else "No parameters required.\n")
+
+        if c.section == "functions":
+            docstring += "\n    Returns:\n        " + get_docstring_arg_type(c.qualtype)
+        else:
+            references, count = get_references(c.qualname, "constructors")
+
+            if references:
+                docstring += "\n    Functions:\n        This object can be returned by " \
+                             f"{count} function{'s' if count > 1 else ''}.\n\n" \
+                             "        .. currentmodule:: pyrogram.raw.functions\n\n" \
+                             "        .. autosummary::\n" \
+                             "            :nosignatures:\n\n" \
+                             "            " + references
+
+        write_types = read_types = ""
+
+        for arg_name, arg_type in c.args:
+            flag = FLAGS_RE_2.match(arg_type)
+
+            if re.match(r"flags\d?", arg_name) and arg_type == "#":
+                write_flags = []
+
+                for i in c.args:
+                    flag = FLAGS_RE_2.match(i[1])
+
+                    if flag:
+                        if arg_name != f"flags{flag.group(1)}":
+                            continue
+
+                        if flag.group(3) == "true" or flag.group(3).startswith("Vector"):
+                            write_flags.append(f"{arg_name} |= (1 << {flag.group(2)}) if self.{i[0]} else 0")
+                        else:
+                            write_flags.append(
+                                f"{arg_name} |= (1 << {flag.group(2)}) if self.{i[0]} is not None else 0")
+
+                write_flags = "\n        ".join([
+                    f"{arg_name} = 0",
+                    "\n        ".join(write_flags),
+                    f"b.write(Int({arg_name}))\n        "
+                ])
+
+                write_types += write_flags
+                read_types += f"\n        {arg_name} = Int.read(b)\n        "
+
+                continue
+
+            if flag:
+                number, index, flag_type = flag.groups()
+
+                if flag_type == "true":
+                    read_types += "\n        "
+                    read_types += f"{arg_name} = True if flags{number} & (1 << {index}) else False"
+                elif flag_type in CORE_TYPES:
+                    write_types += "\n        "
+                    write_types += f"if self.{arg_name} is not None:\n            "
+                    write_types += f"b.write({flag_type.title()}(self.{arg_name}))\n        "
+
+                    read_types += "\n        "
+                    read_types += f"{arg_name} = {flag_type.title()}.read(b) if flags{number} & (1 << {index}) else None"
+                elif "vector" in flag_type.lower():
+                    sub_type = arg_type.split("<")[1][:-1]
+
+                    write_types += "\n        "
+                    write_types += f"if self.{arg_name} is not None:\n            "
+                    write_types += "b.write(Vector(self.{}{}))\\n        ".format(
+                        arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else ""
+                    )
+
+                    read_types += "\n        "
+                    read_types += "{} = TLObject.read(b{}) if flags{} & (1 << {}) else []\n        ".format(
+                        arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else "", number, index
+                    )
+                else:
+                    write_types += "\n        "
+                    write_types += f"if self.{arg_name} is not None:\n            "
+                    write_types += f"b.write(self.{arg_name}.write())\n        "
+
+                    read_types += "\n        "
+                    read_types += f"{arg_name} = TLObject.read(b) if flags{number} & (1 << {index}) else None\n        "
+            else:
+                if arg_type in CORE_TYPES:
+                    write_types += "\n        "
+                    write_types += f"b.write({arg_type.title()}(self.{arg_name}))\n        "
+
+                    read_types += "\n        "
+                    read_types += f"{arg_name} = {arg_type.title()}.read(b)\n        "
+                elif "vector" in arg_type.lower():
+                    sub_type = arg_type.split("<")[1][:-1]
+
+                    write_types += "\n        "
+                    write_types += "b.write(Vector(self.{}{}))\\n        ".format(
+                        arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else ""
+                    )
+
+                    read_types += "\n        "
+                    read_types += "{} = TLObject.read(b{})\n        ".format(
+                        arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else ""
+                    )
+                else:
+                    write_types += "\n        "
+                    write_types += f"b.write(self.{arg_name}.write())\n        "
+
+                    read_types += "\n        "
+                    read_types += f"{arg_name} = TLObject.read(b)\n        "
+
+        slots = ", ".join([f'"{i[0]}"' for i in sorted_args])
+        return_arguments = ", ".join([f"{i[0]}={i[0]}" for i in sorted_args])
+
+        compiled_combinator = combinator_tmpl.format(
+            notice=notice,
+            warning=WARNING,
+            name=c.name,
+            docstring=docstring,
+            slots=slots,
+            id=c.id,
+            qualname=f"{c.section}.{c.qualname}",
+            arguments=arguments,
+            fields=fields,
+            read_types=read_types,
+            write_types=write_types,
+            return_arguments=return_arguments
+        )
+
+        directory = "types" if c.section == "types" else c.section
+
+        dir_path = DESTINATION_PATH / directory / c.namespace
+
+        os.makedirs(dir_path, exist_ok=True)
+
+        module = c.name
+
+        if module == "Updates":
+            module = "UpdatesT"
+
+        with open(dir_path / f"{snake(module)}.py", "w") as f:
+            f.write(compiled_combinator)
+
+        d = namespaces_to_constructors if c.section == "types" else namespaces_to_functions
+
+        if c.namespace not in d:
+            d[c.namespace] = []
+
+        d[c.namespace].append(c.name)
+
+    for namespace, types in namespaces_to_types.items():
+        with open(DESTINATION_PATH / "base" / namespace / "__init__.py", "w") as f:
+            f.write(f"{notice}\n\n")
+            f.write(f"{WARNING}\n\n")
+
+            for t in types:
+                module = t
+
+                if module == "Updates":
+                    module = "UpdatesT"
+
+                f.write(f"from .{snake(module)} import {t}\n")
+
+            if not namespace:
+                f.write(f"from . import {', '.join(filter(bool, namespaces_to_types))}")
+
+    for namespace, types in namespaces_to_constructors.items():
+        with open(DESTINATION_PATH / "types" / namespace / "__init__.py", "w") as f:
+            f.write(f"{notice}\n\n")
+            f.write(f"{WARNING}\n\n")
+
+            for t in types:
+                module = t
+
+                if module == "Updates":
+                    module = "UpdatesT"
+
+                f.write(f"from .{snake(module)} import {t}\n")
+
+            if not namespace:
+                f.write(f"from . import {', '.join(filter(bool, namespaces_to_constructors))}\n")
+
+    for namespace, types in namespaces_to_functions.items():
+        with open(DESTINATION_PATH / "functions" / namespace / "__init__.py", "w") as f:
+            f.write(f"{notice}\n\n")
+            f.write(f"{WARNING}\n\n")
+
+            for t in types:
+                module = t
+
+                if module == "Updates":
+                    module = "UpdatesT"
+
+                f.write(f"from .{snake(module)} import {t}\n")
+
+            if not namespace:
+                f.write(f"from . import {', '.join(filter(bool, namespaces_to_functions))}")
+
+    with open(DESTINATION_PATH / "all.py", "w", encoding="utf-8") as f:
+        f.write(notice + "\n\n")
+        f.write(WARNING + "\n\n")
+        f.write(f"layer = {layer}\n\n")
+        f.write("objects = {")
+
+        for c in combinators:
+            f.write(f'\n    {c.id}: "pyrogram.raw.{c.section}.{c.qualname}",')
+
+        f.write('\n    0xbc799737: "pyrogram.raw.core.BoolFalse",')
+        f.write('\n    0x997275b5: "pyrogram.raw.core.BoolTrue",')
+        f.write('\n    0x1cb5c415: "pyrogram.raw.core.Vector",')
+        f.write('\n    0x73f1f8dc: "pyrogram.raw.core.MsgContainer",')
+        f.write('\n    0xae500895: "pyrogram.raw.core.FutureSalts",')
+        f.write('\n    0x0949d9dc: "pyrogram.raw.core.FutureSalt",')
+        f.write('\n    0x3072cfa1: "pyrogram.raw.core.GzipPacked",')
+        f.write('\n    0x5bb8e511: "pyrogram.raw.core.Message",')
+
+        f.write("\n}\n")
 
 
 if "__main__" == __name__:
-    FUNCTIONS_PATH = "../../pyrogram/raw/functions"
-    TYPES_PATH = "../../pyrogram/raw/types"
-    BASE_PATH = "../../pyrogram/raw/base"
-    HOME = "."
-    DESTINATION = "../../docs/source/telegram"
-    IRENOGRAM_API_DEST = "../../docs/source/api"
+    HOME_PATH = Path(".")
+    DESTINATION_PATH = Path("../../pyrogram/raw")
+    NOTICE_PATH = Path("../../NOTICE")
 
-    start()
+    start(format=False)
