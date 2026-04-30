@@ -654,8 +654,10 @@ def start(format: bool = False):
 
 
 if "__main__" == __name__:
-    HOME_PATH = Path(".")
-    DESTINATION_PATH = Path("../../pyrogram/raw")
-    NOTICE_PATH = Path("../../NOTICE")
+    BASE = Path(__file__).resolve().parent
+
+    HOME_PATH = (BASE / "../api").resolve()
+    DESTINATION_PATH = (BASE / "../../pyrogram/raw").resolve()
+    NOTICE_PATH = (BASE / "../../NOTICE").resolve()
 
     start(format=False)
