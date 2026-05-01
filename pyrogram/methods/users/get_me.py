@@ -27,5 +27,6 @@ class GetMe:
         )
 
         users = {u.id: u for u in r.users}
+        chats = {c.id: c for c in r.chats}
 
-        return types.User._parse(self, users[r.full_user.id])
+        return await types.User._parse_full(self, r.full_user, users, chats)
