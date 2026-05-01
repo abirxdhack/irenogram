@@ -1,8 +1,10 @@
 
+from datetime import datetime
 from typing import Union, AsyncGenerator, Optional
 
 import pyrogram
 from pyrogram import types, raw, utils
+
 
 class GetChatPhotos:
     async def get_chat_photos(
@@ -24,7 +26,6 @@ class GetChatPhotos:
                 Unique identifier (int) or username (str) of the target chat.
                 For your personal cloud (Saved Messages) you can simply use "me" or "self".
                 For a contact that exists in your Telegram address book you can use his phone number (str).
-                You can also use user profile/chat public link in form of *t.me/<username>* (str).
 
             limit (``int``, *optional*):
                 Limits the number of profile photos to be retrieved.
@@ -48,15 +49,15 @@ class GetChatPhotos:
                 )
             )
 
-            current = types.Photo._parse(self, r.full_chat.chat_photo) or []
-            current = [current]
-            current_animation = types.Animation._parse_chat_animation(
+            current = types.Animation._parse_chat_animation(
                 self,
-                r.full_chat.chat_photo
-            )
-            if current_animation:
-                current = current + [current_animation]
-            extra = []
+                r.full_chat.chat_photo,
+                f"photo_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.mp4"
+            ) or types.Photo._parse(self, r.full_chat.chat_photo) or []
+
+            if current:
+                current = [current]
+
             if not self.me.is_bot:
                 r = await utils.parse_messages(
                     self,
@@ -69,7 +70,7 @@ class GetChatPhotos:
                             max_date=0,
                             offset_id=0,
                             add_offset=0,
-                            limit=limit,
+                            limit=limit or (1 << 31) - 1,
                             max_id=0,
                             min_id=0,
                             hash=0
@@ -77,74 +78,39 @@ class GetChatPhotos:
                     )
                 )
 
-                extra = [message.new_chat_photo for message in r] if r else []
+                extra = [message.new_chat_photo for message in r]
 
-            if extra:
-                if (
-                    current
-                    and
-                    len(current) > 0
-                    and
-                    isinstance(current[0], types.Photo)
-                ):
-                    photos = (current + extra) if current[0].file_id != extra[0].file_id else extra
-                else:
-                    photos = extra
-            else:
-                if current:
-                    photos = current
-                else:
-                    photos = []
+                if extra:
+                    if current:
+                        current.extend(extra)
+                    else:
+                        current = extra
 
-            current = 0
+            count = 0
 
-            if len(photos) == 0 or (len(photos) == 1 and not isinstance(photos[0], types.Photo)):
-                return
-
-            for photo in photos:
+            for photo in current:
                 yield photo
 
-                current += 1
+                count += 1
 
-                if current >= limit:
+                if limit and count >= limit:
                     return
         else:
-            current = 0
-            total = limit or (1 << 31)
-            limit = min(100, total)
-            offset = 0
-
-            while True:
-                r = await self.invoke(
-                    raw.functions.photos.GetUserPhotos(
-                        user_id=peer_id,
-                        offset=offset,
-                        max_id=0,
-                        limit=limit
-                    )
+            r = await self.invoke(
+                raw.functions.photos.GetUserPhotos(
+                    user_id=peer_id,
+                    offset=0,
+                    max_id=0,
+                    limit=limit or (1 << 31) - 1
                 )
+            )
 
-                photos = []
-                for photo in r.photos:
-                    photos.append(
-                        types.Photo._parse(self, photo)
-                    )
-                    current_animation = types.Animation._parse_chat_animation(
-                        self,
-                        photo
-                    )
-                    if current_animation:
-                        photos.append(current_animation)
+            count = 0
 
-                if not photos:
+            for photo in r.photos:
+                yield types.Photo._parse(self, photo)
+
+                count += 1
+
+                if limit and count >= limit:
                     return
-
-                offset += len(photos)
-
-                for photo in photos:
-                    yield photo
-
-                    current += 1
-
-                    if current >= total:
-                        return
