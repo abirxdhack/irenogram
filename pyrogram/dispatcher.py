@@ -1,4 +1,3 @@
-
 import asyncio
 import inspect
 import logging
@@ -104,6 +103,7 @@ class Dispatcher:
         self.groups = OrderedDict()
 
         async def message_parser(update, users, chats):
+            """Parse new messages."""
             connection_id = getattr(update, "connection_id", None)
 
             return (
@@ -121,6 +121,7 @@ class Dispatcher:
             )
 
         async def edited_message_parser(update, users, chats):
+            """Parse edited messages."""
             parsed, _ = await message_parser(update, users, chats)
 
             return (
@@ -129,102 +130,119 @@ class Dispatcher:
             )
 
         async def deleted_messages_parser(update, users, chats):
+            """Parse deleted messages."""
             return (
                 utils.parse_deleted_messages(self.client, update, users, chats),
                 DeletedMessagesHandler,
             )
 
         async def callback_query_parser(update, users, chats):
+            """Parse callback queries."""
             return (
                 await pyrogram.types.CallbackQuery._parse(self.client, update, users, chats),
                 CallbackQueryHandler
             )
 
         async def user_status_parser(update, users, chats):
+            """Parse user status updates."""
             return (
                 pyrogram.types.User._parse_user_status(self.client, update),
                 UserStatusHandler
             )
 
         async def inline_query_parser(update, users, chats):
+            """Parse inline queries."""
             return (
                 pyrogram.types.InlineQuery._parse(self.client, update, users),
                 InlineQueryHandler
             )
 
         async def poll_parser(update, users, chats):
+            """Parse poll updates."""
             return (
                 pyrogram.types.Poll._parse_update(self.client, update, users, chats),
                 PollHandler
             )
 
         async def chosen_inline_result_parser(update, users, chats):
+            """Parse chosen inline results."""
             return (
                 pyrogram.types.ChosenInlineResult._parse(self.client, update, users),
                 ChosenInlineResultHandler
             )
 
         async def chat_member_updated_parser(update, users, chats):
+            """Parse chat member updates."""
             return (
                 pyrogram.types.ChatMemberUpdated._parse(self.client, update, users, chats),
                 ChatMemberUpdatedHandler
             )
 
         async def chat_join_request_parser(update, users, chats):
+            """Parse chat join requests."""
             return (
                 pyrogram.types.ChatJoinRequest._parse(self.client, update, users, chats),
                 ChatJoinRequestHandler
             )
 
         async def story_parser(update, users, chats):
+            """Parse story updates."""
             return (
                 await pyrogram.types.Story._parse(self.client, update.story, update.peer, users, chats),
                 StoryHandler
             )
 
         async def pre_checkout_query_parser(update, users, chats):
+            """Parse pre-checkout queries."""
             return (
                 await pyrogram.types.PreCheckoutQuery._parse(self.client, update, users),
                 PreCheckoutQueryHandler
             )
 
         async def shipping_query_parser(update, users, chats):
+            """Parse shipping queries."""
             return (
                 await pyrogram.types.ShippingQuery._parse(self.client, update, users),
                 ShippingQueryHandler
             )
 
         async def message_reaction_parser(update, users, chats):
+            """Parse message reactions."""
             return (
                 pyrogram.types.MessageReactionUpdated._parse(self.client, update, users, chats),
                 MessageReactionHandler
             )
 
         async def message_reaction_count_parser(update, users, chats):
+            """Parse message reaction counts."""
             return (
                 pyrogram.types.MessageReactionCountUpdated._parse(self.client, update, users, chats),
                 MessageReactionCountHandler
             )
 
         async def chat_boost_parser(update, users, chats):
+            """Parse chat boost updates."""
             return (
                 pyrogram.types.ChatBoostUpdated._parse(self.client, update, users, chats),
                 ChatBoostHandler
             )
 
         async def purchased_paid_media_parser(update, users, chats):
+            """Parse purchased paid media."""
             return (
                 pyrogram.types.PurchasedPaidMedia._parse(self.client, update, users),
                 PurchasedPaidMediaHandler
             )
 
         async def business_connection_parser(update, users, chats):
+            """Parse business connections."""
             return (
                 pyrogram.types.BusinessConnection._parse(self.client, update, users),
                 BusinessConnectionHandler
             )
 
         async def business_message_parser(update, users, chats):
+            """Parse business messages."""
             parsed, _ = await message_parser(update, users, chats)
 
             return (
@@ -233,6 +251,7 @@ class Dispatcher:
             )
 
         async def edited_business_message_parser(update, users, chats):
+            """Parse edited business messages."""
             parsed, _ = await message_parser(update, users, chats)
 
             return (
@@ -241,6 +260,7 @@ class Dispatcher:
             )
 
         async def deleted_business_messages_parser(update, users, chats):
+            """Parse deleted business messages."""
             parsed, _ = await deleted_messages_parser(update, users, chats)
 
             return (
@@ -249,6 +269,7 @@ class Dispatcher:
             )
 
         async def managed_bot_parser(update, users, chats):
+            """Parse managed bot updates."""
             return (
                 await pyrogram.types.ManagedBotUpdated._parse(self.client, update, users),
                 ManagedBotUpdatedHandler
