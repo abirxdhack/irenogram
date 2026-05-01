@@ -1,3 +1,4 @@
+
 import re
 
 import pyrogram
@@ -21,8 +22,8 @@ class JoinFolder:
             ``bool``: True, on success.
 
         Raises:
-            :raises ~pyrogram.errors.BadRequest: In case the folder invite link not exists.
-            :raises ValueError: In case the folder invite link is invalid.
+            BadRequest: In case the folder invite link not exists.
+            ValueError: In case the folder invite link is invalid.
 
         Example:
             .. code-block:: python
