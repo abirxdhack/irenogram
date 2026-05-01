@@ -4,6 +4,7 @@ from typing import Optional, Union
 import pyrogram
 from pyrogram import raw
 
+
 class GetBusinessAccountStarBalance:
     async def get_business_account_star_balance(
         self: "pyrogram.Client",
@@ -26,7 +27,6 @@ class GetBusinessAccountStarBalance:
 
         Example:
             .. code-block:: python
-
 
                 await app.get_business_account_star_balance("connection_id")
         """
