@@ -1,6 +1,6 @@
 
 from datetime import datetime
-from typing import Union
+from typing import Union, Optional
 
 import pyrogram
 from pyrogram import raw, utils
@@ -25,14 +25,14 @@ class UpdateChatNotifications:
             mute (``bool``, *optional*):
                 Pass True if you want to mute chat.
 
-            until_date (:py:obj:`~datetime.datetime`, *optional*):
+            mute_until (:py:obj:`~datetime.datetime`, *optional*):
                 Date when the user will be unmuted. Works only if the mute parameter is set to True. Defaults to forever.
 
             stories_muted (``bool``, *optional*):
-                N/A
+                Pass True to mute stories notifications.
 
             stories_hide_sender (``bool``, *optional*):
-                N/A
+                Pass True to hide stories sender name.
 
             show_previews (``bool``, *optional*):
                 If the text of the message shall be displayed in notification.
@@ -47,8 +47,8 @@ class UpdateChatNotifications:
 
                 await app.update_chat_notifications(
                     chat_id,
-                    mute=True
-                    mute_until=datetime.timedelta(minutes=10)
+                    mute=True,
+                    mute_until=datetime.now() + timedelta(minutes=10)
                 )
 
                 await app.update_chat_notifications(chat_id, mute=False)
