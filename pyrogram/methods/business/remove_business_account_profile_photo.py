@@ -10,13 +10,22 @@ class RemoveBusinessAccountProfilePhoto:
     ) -> bool:
         """Removes the profile photo of a managed business account.
 
+        .. include:: /_includes/usable-by/bots.rst
 
         Parameters:
-            business_connection_id (``str``): Unique identifier of the business connection.
-            is_public (``bool``): Pass True to remove the public photo, False for personal photo.
+            business_connection_id (``str``):
+                Unique identifier of the business connection.
+
+            is_public (``bool``, *optional*):
+                Pass True to remove the public photo, False for personal photo.
 
         Returns:
             ``bool``: True on success.
+
+        Example:
+            .. code-block:: python
+
+                await app.remove_business_account_profile_photo(connection_id)
         """
 
         photos = await self.invoke(
