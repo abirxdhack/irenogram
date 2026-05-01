@@ -418,7 +418,11 @@ def timestamp_to_datetime(ts: Optional[int]) -> Optional[datetime]:
     return datetime.fromtimestamp(ts) if ts else None
 
 def datetime_to_timestamp(dt: Optional[datetime]) -> Optional[int]:
-    return int(dt.timestamp()) if dt else None
+    if not dt:
+        return None
+    if isinstance(dt, int):
+        return dt
+    return int(dt.timestamp())
 
 async def run_sync(func: Callable[..., TypeVar("Result")], *args: Any, **kwargs: Any) -> TypeVar("Result"):
     return await asyncio.get_running_loop().run_in_executor(None, functools.partial(func, *args, **kwargs))
