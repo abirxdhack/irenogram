@@ -26,6 +26,15 @@ class InputReplyToMessage(Object):
         quote_entities (List of :obj:`~pyrogram.raw.base.MessageEntity`):
             Entities to quote.
             for reply_to_message only.
+
+        todo_item_id (``int``, *optional*):
+            TODO item ID for todo item replies.
+
+        poll_option (``int``, *optional*):
+            Poll option ID for poll option replies.
+
+        monoforum_peer (:obj:`~pyrogram.raw.InputPeer`, *optional*):
+            Monoforum peer for monoforum replies.
     """
 
     def __init__(
@@ -39,6 +48,13 @@ class InputReplyToMessage(Object):
         quote_text: str = None,
         quote_entities: List["raw.base.MessageEntity"] = None,
         quote_offset: int = None,
+        todo_item_id: int = None,
+        poll_option: int = None,
+        monoforum_peer: Union[
+            "raw.types.InputPeerChannel",
+            "raw.types.InputPeerChat",
+            "raw.types.InputPeerUser"
+        ] = None,
     ):
         super().__init__()
 
@@ -48,6 +64,9 @@ class InputReplyToMessage(Object):
         self.quote_text = quote_text
         self.quote_entities = quote_entities
         self.quote_offset = quote_offset
+        self.todo_item_id = todo_item_id
+        self.poll_option = poll_option
+        self.monoforum_peer = monoforum_peer
 
     def write(self):
         """Serialize this object into a raw Telegram TL representation."""
@@ -69,5 +88,7 @@ class InputReplyToMessage(Object):
                 quote_text=self.quote_text,
                 quote_entities=self.quote_entities,
                 quote_offset=self.quote_offset,
+                todo_item_id=self.todo_item_id,
+                poll_option=self.poll_option,
             ).write()
         return None
