@@ -1,4 +1,3 @@
-
 from typing import Union
 
 import pyrogram
@@ -63,8 +62,8 @@ class DeletePollAnswer:
                 return await types.Message._parse(
                     self,
                     update.message,
-                    {u.id: u for u in r.users},
-                    {c.id: c for c in r.chats},
+                    {u.id: u for u in r.users} if hasattr(r, 'users') and r.users else {},
+                    {c.id: c for c in r.chats} if hasattr(r, 'chats') and r.chats else {},
                 )
 
         return None
