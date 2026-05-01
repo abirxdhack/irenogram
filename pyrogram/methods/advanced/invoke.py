@@ -1,4 +1,3 @@
-
 import logging
 
 import pyrogram
@@ -14,7 +13,9 @@ class Invoke:
         query: TLObject,
         retries: int = Session.MAX_RETRIES,
         timeout: float = Session.WAIT_TIMEOUT,
-        sleep_threshold: float = None
+        sleep_threshold: float = None,
+        *args,
+        **kwargs
     ):
         """Invoke raw Telegram functions.
 
@@ -52,6 +53,12 @@ class Invoke:
         if not self.is_connected:
             raise ConnectionError("Client has not been started yet")
 
+        if kwargs:
+            kwargs.pop("business_connection_id", None)
+            kwargs.pop("direct_messages_topic_id", None)
+            kwargs.pop("message_thread_id", None)
+            kwargs.pop("reply_to_topic_id", None)
+
         if self.no_updates:
             query = raw.functions.InvokeWithoutUpdates(query=query)
 
@@ -59,10 +66,10 @@ class Invoke:
             query = raw.functions.InvokeWithTakeout(takeout_id=self.takeout_id, query=query)
 
         r = await self.session.invoke(
-            query, retries, timeout,
-            (sleep_threshold
-             if sleep_threshold is not None
-             else self.sleep_threshold)
+            query,
+            retries,
+            timeout,
+            (sleep_threshold if sleep_threshold is not None else self.sleep_threshold)
         )
 
         await self.fetch_peers(getattr(r, "users", []))
