@@ -1,4 +1,3 @@
-
 from enum import auto
 
 from .auto_name import AutoName
@@ -26,3 +25,6 @@ class ChatType(AutoName):
 
     MONOFORUM = auto()
     "Chat is a monoforum"
+
+    DIRECT = auto()
+    "Chat is a direct messages channel (monoforum direct)"
