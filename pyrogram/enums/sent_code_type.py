@@ -1,4 +1,3 @@
-
 from pyrogram import raw
 from .auto_name import AutoName
 
@@ -25,3 +24,6 @@ class SentCodeType(AutoName):
 
     EMAIL_CODE = raw.types.auth.SentCodeTypeEmailCode
     "The code was sent via email."
+
+    SETUP_EMAIL_REQUIRED = raw.types.auth.SentCodeTypeSetUpEmailRequired
+    "Email setup is required before a code can be sent."
