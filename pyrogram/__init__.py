@@ -1,4 +1,3 @@
-name=pyrogram/__init__.py
 __fork_name__ = "Irenogram"
 __version__ = "2.3.82"
 __license__ = "GNU Lesser General Public License v3.0 (LGPL-3.0)"
