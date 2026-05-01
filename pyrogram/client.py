@@ -377,6 +377,8 @@ class Client(Methods):
 
         self.business_connections = {}
 
+        self.listeners = {listener_type: [] for listener_type in enums.ListenerTypes}
+
         self.sessions = {}
         self.media_sessions = {}
         self.sessions_lock = asyncio.Lock()
