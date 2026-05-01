@@ -1,4 +1,3 @@
-
 from datetime import datetime
 
 import pyrogram
@@ -57,7 +56,7 @@ class Voice(Object):
         self.date = date
 
     @staticmethod
-    def _parse(client, voice: "raw.types.Document", attributes: "raw.types.DocumentAttributeAudio") -> "Voice":
+    def _parse(client, voice: "raw.types.Document", attributes: "raw.types.DocumentAttributeAudio", ttl_seconds: int = None) -> "Voice":
         return Voice(
             file_id=FileId(
                 file_type=FileType.VOICE,
