@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from getpass import getpass
 from typing import Union, List, Dict, Optional, Any, Callable, TypeVar
 from types import SimpleNamespace
-
 import pyrogram
 from pyrogram import raw, enums, types
 from pyrogram.types.messages_and_media.message import Str
@@ -83,9 +82,12 @@ async def parse_messages(
     business_connection_id: str = None,
     is_scheduled: bool = False
 ) -> List["types.Message"]:
-    users = {i.id: i for i in messages.users}
-    chats = {i.id: i for i in messages.chats}
-    if hasattr(messages, "topics"):
+    if not hasattr(messages, 'messages'):
+        return types.List()
+    
+    users = {i.id: i for i in messages.users} if hasattr(messages, 'users') and messages.users else {}
+    chats = {i.id: i for i in messages.chats} if hasattr(messages, 'chats') and messages.chats else {}
+    if hasattr(messages, "topics") and messages.topics:
         topics = {i.id: i for i in messages.topics}
     else:
         topics = None
