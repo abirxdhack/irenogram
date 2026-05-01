@@ -1,4 +1,3 @@
-
 import os
 import re
 from datetime import datetime
@@ -11,6 +10,7 @@ from pyrogram import types
 from pyrogram import utils
 from pyrogram.errors import FilePartMissing
 from pyrogram.file_id import FileType
+
 
 class SendDocument:
     async def send_document(
@@ -84,21 +84,16 @@ class SendDocument:
                 Defaults to file's path basename.
 
             force_document (``bool``, *optional*):
-                Pass True to force sending files as document. Useful for video files that need to be sent as
-                document messages instead of video messages.
-                Defaults to False.
+                Pass True to force sending files as document.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
-                Users will receive a notification with no sound.
 
             message_thread_id (``int``, *optional*):
-                Unique identifier for the target message thread (topic) of the forum.
-                for forum supergroups only.
+                Unique identifier for the target message thread.
 
             business_connection_id (``str``, *optional*):
                 Business connection identifier.
-                for business bots only.
 
             reply_to_message_id (``int``, *optional*):
                 If the message is a reply, ID of the original message.
@@ -108,78 +103,39 @@ class SendDocument:
 
             reply_to_chat_id (``int`` | ``str``, *optional*):
                 Unique identifier for the origin chat.
-                for reply to message from another chat.
-                You can also use chat public link in form of *t.me/<username>* (str).
 
             reply_to_monoforum_id (``int`` | ``str``, *optional*):
                 Unique identifier for the target user of monoforum.
-                for reply to message from monoforum.
-                for channel administrators only.
 
             quote_text (``str``, *optional*):
                 Text to quote.
-                for reply_to_message only.
 
             quote_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
-                List of special entities that appear in quote_text, which can be specified instead of *parse_mode*.
-                for reply_to_message only.
+                Entities in quote_text.
 
             message_effect_id (``int`` ``64-bit``, *optional*):
-                Unique identifier of the message effect to be added to the message; for private chats only.
+                Message effect id.
 
             schedule_date (:py:obj:`~datetime.datetime`, *optional*):
-                Date when the message will be automatically sent.
+                Date when the message will be sent.
 
             protect_content (``bool``, *optional*):
-                Protects the contents of the sent message from forwarding and saving.
+                Protects content.
 
             allow_paid_broadcast (``bool``, *optional*):
-                Pass True to allow the message to ignore regular broadcast limits for a small fee; for bots only
+                Ignore broadcast limits.
 
-            reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardRemove` | :obj:`~pyrogram.types.ForceReply`, *optional*):
-                Additional interface options. An object for an inline keyboard, custom reply keyboard,
-                instructions to remove reply keyboard or to force a reply from the user.
+            reply_markup:
+                Reply markup.
 
-            progress (``Callable``, *optional*):
-                Pass a callback function to view the file transmission progress.
-                The function must take *(current, total)* as positional arguments (look at Other Parameters below for a
-                detailed description) and will be called back each time a new file chunk has been successfully
-                transmitted.
+            progress:
+                Progress callback.
 
-            progress_args (``tuple``, *optional*):
-                Extra custom arguments for the progress callback function.
-                You can pass anything you need to be available in the progress callback scope; for example, a Message
-                object or a Client instance in order to edit the message with the updated progress status.
-
-        Other Parameters:
-            current (``int``):
-                The amount of bytes transmitted so far.
-
-            total (``int``):
-                The total size of the file.
-
-            *args (``tuple``, *optional*):
-                Extra custom arguments as defined in the ``progress_args`` parameter.
-                You can either keep ``*args`` or add every single extra argument in your function signature.
+            progress_args:
+                Extra args.
 
         Returns:
-            :obj:`~pyrogram.types.Message` | ``None``: On success, the sent document message is returned, otherwise, in
-            case the upload is deliberately stopped with :meth:`~pyrogram.Client.stop_transmission`, None is returned.
-
-        Example:
-            .. code-block:: python
-
-
-                await app.send_document("me", "document.zip")
-
-
-                await app.send_document("me", "document.zip", caption="document caption")
-
-
-                async def progress(current, total):
-                    print(f"{current * 100 / total:.1f}%")
-
-                await app.send_document("me", "document.zip", progress=progress)
+            :obj:`~pyrogram.types.Message` | ``None``
         """
         file = None
 
@@ -211,9 +167,7 @@ class SendDocument:
                         ]
                     )
                 elif re.match("^https?://", document):
-                    media = raw.types.InputMediaDocumentExternal(
-                        url=document
-                    )
+                    media = raw.types.InputMediaDocumentExternal(url=document)
                 else:
                     media = utils.get_input_media_from_file_id(document, FileType.DOCUMENT)
             else:
@@ -243,27 +197,24 @@ class SendDocument:
                         reply_markup=await reply_markup.write(self) if reply_markup else None,
                         **await utils.parse_text_entities(self, caption, parse_mode, caption_entities)
                     )
-                    if business_connection_id is not None:
-                        r = await self.invoke(
-                            raw.functions.InvokeWithBusinessConnection(
-                                connection_id=business_connection_id,
-                                query=rpc
-                            )
-                        )
-                    else:
-                        r = await self.invoke(rpc)
+
+                    r = await self.invoke(rpc)
+
                 except FilePartMissing as e:
                     await self.save_file(document, file_id=file.id, file_part=e.value)
                 else:
                     for i in r.updates:
-                        if isinstance(i, (raw.types.UpdateNewMessage,
-                                          raw.types.UpdateNewChannelMessage,
-                                          raw.types.UpdateNewScheduledMessage,
-                                          raw.types.UpdateBotNewBusinessMessage)):
+                        if isinstance(i, (
+                            raw.types.UpdateNewMessage,
+                            raw.types.UpdateNewChannelMessage,
+                            raw.types.UpdateNewScheduledMessage,
+                            raw.types.UpdateBotNewBusinessMessage
+                        )):
                             return await types.Message._parse(
-                                self, i.message,
-                                {i.id: i for i in r.users},
-                                {i.id: i for i in r.chats},
+                                self,
+                                i.message,
+                                {u.id: u for u in r.users},
+                                {c.id: c for c in r.chats},
                                 is_scheduled=isinstance(i, raw.types.UpdateNewScheduledMessage),
                                 business_connection_id=business_connection_id
                             )
