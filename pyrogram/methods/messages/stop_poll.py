@@ -57,7 +57,7 @@ class StopPoll:
             )
         )
 
-        users = {i.id: i for i in r.users}
-        chats = {i.id: i for i in r.chats}
+        users = {i.id: i for i in r.users} if hasattr(r, 'users') and r.users else {}
+        chats = {i.id: i for i in r.chats} if hasattr(r, 'chats') and r.chats else {}
 
         return types.Poll._parse(self, r.updates[0], None, users=users, chats=chats)
