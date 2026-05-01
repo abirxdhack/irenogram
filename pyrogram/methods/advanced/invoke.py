@@ -53,11 +53,16 @@ class Invoke:
         if not self.is_connected:
             raise ConnectionError("Client has not been started yet")
 
-        if kwargs:
-            kwargs.pop("business_connection_id", None)
-            kwargs.pop("direct_messages_topic_id", None)
-            kwargs.pop("message_thread_id", None)
-            kwargs.pop("reply_to_topic_id", None)
+        business_connection_id = kwargs.pop("business_connection_id", None)
+        kwargs.pop("direct_messages_topic_id", None)
+        kwargs.pop("message_thread_id", None)
+        kwargs.pop("reply_to_topic_id", None)
+
+        if business_connection_id:
+            query = raw.functions.InvokeWithBusinessConnection(
+                connection_id=business_connection_id,
+                query=query
+            )
 
         if self.no_updates:
             query = raw.functions.InvokeWithoutUpdates(query=query)
