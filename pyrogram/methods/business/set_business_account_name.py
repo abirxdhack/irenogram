@@ -11,6 +11,7 @@ class SetBusinessAccountName:
     ) -> bool:
         """Changes the first and last name of a managed business account.
 
+        .. include:: /_includes/usable-by/bots.rst
 
         Parameters:
             business_connection_id (``str``):
@@ -24,6 +25,11 @@ class SetBusinessAccountName:
 
         Returns:
             ``bool``: True on success.
+
+        Example:
+            .. code-block:: python
+
+                await app.set_business_account_name(connection_id, "New", "Name")
         """
         r = await self.invoke(
             raw.functions.InvokeWithBusinessConnection(
