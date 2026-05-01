@@ -1,4 +1,3 @@
-
 import logging
 from datetime import datetime
 from typing import List, Optional, Union
@@ -21,7 +20,6 @@ class EditMessageText:
         schedule_date: datetime = None,
         business_connection_id: str = None,
         reply_markup: "types.InlineKeyboardMarkup" = None,
-
         show_caption_above_media: bool = None,
         disable_web_page_preview: bool = None,
     ) -> "types.Message":
@@ -62,17 +60,6 @@ class EditMessageText:
 
         Returns:
             :obj:`~pyrogram.types.Message`: On success, the edited message is returned.
-
-        Example:
-            .. code-block:: python
-
-                await app.edit_message_text(chat_id, message_id, "new text")
-
-                from pyrogram import types
-
-                await app.edit_message_text(
-                    chat_id, message_id, message.text,
-                    link_preview_options=types.LinkPreviewOptions(is_disabled=True))
         """
         if any(
             (
@@ -116,14 +103,14 @@ class EditMessageText:
                 schedule_date=utils.datetime_to_timestamp(schedule_date),
                 reply_markup=await reply_markup.write(self) if reply_markup else None,
                 **await utils.parse_text_entities(self, text, parse_mode, entities)
-            ),
-            business_connection_id=business_connection_id
+            )
         )
 
         for i in r.updates:
             if isinstance(i, (raw.types.UpdateEditMessage, raw.types.UpdateEditChannelMessage)):
                 return await types.Message._parse(
-                    self, i.message,
-                    {i.id: i for i in r.users},
-                    {i.id: i for i in r.chats}
+                    self,
+                    i.message,
+                    {u.id: u for u in r.users},
+                    {c.id: c for c in r.chats}
                 )
