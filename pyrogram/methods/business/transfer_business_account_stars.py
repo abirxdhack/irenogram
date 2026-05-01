@@ -2,13 +2,14 @@
 import pyrogram
 from pyrogram import raw
 
+
 class TransferBusinessAccountStars:
     async def transfer_business_account_stars(
         self: "pyrogram.Client",
         business_connection_id: str,
         star_count: int,
     ) -> bool:
-        """Transfers Telegram Stars from the business account balance to the bot’s balance.
+        """Transfers Telegram Stars from the business account balance to the bot's balance.
 
         .. note::
 
@@ -26,7 +27,6 @@ class TransferBusinessAccountStars:
         Returns:
             ``bool``: On success, True is returned.
         """
-
         if self.me:
             bot_id = self.me.id
         else:
