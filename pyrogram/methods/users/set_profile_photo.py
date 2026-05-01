@@ -1,45 +1,30 @@
 
-from typing import Union, BinaryIO, List
+from typing import Union, BinaryIO, List, Optional
+import logging
 
 import pyrogram
 from pyrogram import raw
 
+log = logging.getLogger(__name__)
+
 class SetProfilePhoto:
     async def set_profile_photo(
         self: "pyrogram.Client",
+        photo: Optional["types.InputChatPhoto"] = None,
+        is_public: Optional[bool] = None,
         *,
-        photo: Union[str, BinaryIO] = None,
-        emoji: int = None,
-        emoji_background: Union[int, List[int]] = None,
-        video: Union[str, BinaryIO] = None
+        video: Optional[Union[str, BinaryIO]] = None
     ) -> bool:
-        """Set a new profile photo or video (H.264/MPEG-4 AVC video, max 5 seconds).
-
-        The ``photo`` and ``video`` arguments are mutually exclusive.
-        Pass either one as named argument (see examples below).
-
-        .. note::
-
-            This bots method only works for photo only.
+        """Changes a profile photo for the current user.
 
         .. include:: /_includes/usable-by/users-bots.rst
 
         Parameters:
-            photo (``str`` | ``BinaryIO``, *optional*):
+            photo (:obj:`~pyrogram.types.InputChatPhoto`, *optional*):
                 Profile photo to set.
-                Pass a file path as string to upload a new photo that exists on your local machine or
-                pass a binary file-like object with its attribute ".name" set for in-memory uploads.
 
-            emoji (``int``, *optional*):
-                Unique identifier (int) of the emoji to be used as the profile photo.
-
-            emoji_background (``int`` | ``List[int]``, *optional*):
-                hexadecimal colors or List of hexadecimal colors to be used as the chat photo background.
-
-            video (``str`` | ``BinaryIO``, *optional*):
-                Profile video to set.
-                Pass a file path as string to upload a new video that exists on your local machine or
-                pass a binary file-like object with its attribute ".name" set for in-memory uploads.
+            is_public (``bool``, *optional*):
+                Pass True to set the public photo, which will be visible even if the main photo is hidden by privacy settings.
 
         Returns:
             ``bool``: True on success.
@@ -47,29 +32,46 @@ class SetProfilePhoto:
         Example:
             .. code-block:: python
 
+                await app.set_profile_photo(photo=types.InputChatPhotoStatic("new_photo.jpg"))
 
-                await app.set_profile_photo(photo="new_photo.jpg")
+                await app.set_profile_photo(photo=types.InputChatPhotoAnimation("new_video.mp4"))
 
+                await app.set_profile_photo(photo=types.InputChatPhotoPrevious(file_id))
 
-                await app.set_profile_photo(video="new_video.mp4")
+                await app.set_profile_photo(photo=types.InputChatPhotoStatic("new_photo.jpg"), is_public=True)
         """
-
-        emoji_id = None
-        if emoji:
-            background_colors = emoji_background if emoji_background is not None else [0xFFFFFF]
-            if isinstance(background_colors, int):
-                background_colors = [background_colors]
-            emoji_id = raw.types.VideoSizeEmojiMarkup(
-                emoji_id=emoji,
-                background_colors=background_colors
+        if video is not None:
+            log.warning(
+                "`video` is deprecated and will be removed in future updates. Use `photo` instead."
             )
 
-        return bool(
-            await self.invoke(
-                raw.functions.photos.UploadProfilePhoto(
-                    file=await self.save_file(photo),
-                    video_emoji_markup=emoji_id,
-                    video=await self.save_file(video)
+            photo = types.InputChatPhotoAnimation(animation=video)
+
+        if photo is not None and not isinstance(photo, types.InputChatPhoto):
+            log.warning(
+                "You must pass `photo` as `types.InputChatPhoto`. Passing `photo` as a string "
+                "or binary object is deprecated and will be removed in future updates."
+            )
+
+            photo = types.InputChatPhotoStatic(photo=photo)
+
+        if isinstance(photo, types.InputChatPhotoPrevious):
+            return bool(
+                await self.invoke(
+                    raw.functions.photos.UpdateProfilePhoto(
+                        fallback=is_public,
+                        id=await photo.write(self),
+                    )
                 )
             )
-        )
+        else:
+            return bool(
+                await self.invoke(
+                    raw.functions.photos.UploadProfilePhoto(
+                        fallback=is_public,
+                        file=await photo.write(self) if isinstance(photo, types.InputChatPhotoStatic) else None,
+                        video=await photo.write(self) if isinstance(photo, types.InputChatPhotoAnimation) else None,
+                        video_start_ts=getattr(photo, "main_frame_timestamp", None),
+                    )
+                )
+            )
