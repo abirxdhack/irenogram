@@ -1,4 +1,3 @@
-
 from enum import auto
 
 from .auto_name import AutoName
@@ -20,3 +19,6 @@ class StoriesPrivacyRules(AutoName):
 
     NO_CONTACTS = auto()
     "Hide stories from contacts"
+
+    SELECTED_USERS = auto()
+    "Visible to selected users only"
