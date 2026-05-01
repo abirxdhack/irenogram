@@ -1,4 +1,3 @@
-
 import logging
 from datetime import datetime
 from functools import partial
@@ -1787,7 +1786,7 @@ class Message(Object, Update):
                     reply_to_params = {"chat_id": key[0], 'message_ids': key[1]}
                 else:
                     key = (parsed_message.chat.id, parsed_message.reply_to_message_id)
-                    reply_to_params = {'chat_id': key[0], 'message_ids': message.id, 'reply': True}
+                    reply_to_params = {'chat_id': key[0], 'message_ids': key[1]}
 
                 parsed_message.reply_to_message = client.message_cache[key]
 
