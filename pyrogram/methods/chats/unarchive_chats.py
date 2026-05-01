@@ -4,6 +4,7 @@ from typing import Union, List
 import pyrogram
 from pyrogram import raw
 
+
 class UnarchiveChats:
     async def unarchive_chats(
         self: "pyrogram.Client",
@@ -17,7 +18,6 @@ class UnarchiveChats:
             chat_ids (``int`` | ``str`` | List[``int``, ``str``]):
                 Unique identifier (int) or username (str) of the target chat.
                 You can also pass a list of ids (int) or usernames (str).
-                You can also use chat public link in form of *t.me/<username>* (str).
 
         Returns:
             ``bool``: On success, True is returned.
@@ -25,9 +25,7 @@ class UnarchiveChats:
         Example:
             .. code-block:: python
 
-
                 await app.unarchive_chats(chat_id)
-
 
                 await app.unarchive_chats([chat_id1, chat_id2, chat_id3])
         """
