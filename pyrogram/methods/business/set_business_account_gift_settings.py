@@ -14,17 +14,37 @@ class SetBusinessAccountGiftSettings:
     ) -> bool:
         """Changes the privacy settings pertaining to incoming gifts for a managed business account.
 
+        .. include:: /_includes/usable-by/bots.rst
 
         Parameters:
-            business_connection_id (``str``): Unique identifier of the business connection.
-            show_gift_button (``bool``, *optional*): Pass True to show the gift button in the profile.
-            allow_unlimited_gifts (``bool``): Allow unlimited star gifts. Default True.
-            allow_limited_gifts (``bool``): Allow limited star gifts. Default True.
-            allow_unique_gifts (``bool``): Allow unique star gifts. Default True.
-            allow_premium_gifts (``bool``): Allow premium gifts. Default True.
+            business_connection_id (``str``):
+                Unique identifier of the business connection.
+
+            show_gift_button (``bool``, *optional*):
+                Pass True to show the gift button in the profile.
+
+            allow_unlimited_gifts (``bool``, *optional*):
+                Allow unlimited star gifts. Default True.
+
+            allow_limited_gifts (``bool``, *optional*):
+                Allow limited star gifts. Default True.
+
+            allow_unique_gifts (``bool``, *optional*):
+                Allow unique star gifts. Default True.
+
+            allow_premium_gifts (``bool``, *optional*):
+                Allow premium gifts. Default True.
 
         Returns:
             ``bool``: True on success.
+
+        Example:
+            .. code-block:: python
+
+                await app.set_business_account_gift_settings(
+                    connection_id, 
+                    show_gift_button=True
+                )
         """
         disallowed = raw.types.DisallowedGiftsSettings(
             disallow_unlimited_stargifts=not allow_unlimited_gifts or None,
