@@ -445,12 +445,14 @@ def parse_text_with_entities(client, message: "raw.types.TextWithEntities", user
 
 async def get_reply_to(
     client: "pyrogram.Client",
-    chat_id: Union[int,str] = None,
+    reply_parameters: "types.ReplyParameters" = None,
+    message_thread_id: int = None,
+    direct_messages_topic_id: int = None,
+    chat_id: Union[int, str] = None,
     reply_to_message_id: int = None,
     reply_to_story_id: int = None,
-    message_thread_id: int = None,
-    reply_to_monoforum_id: Union[int,str] = None,
-    reply_to_chat_id: Union[int,str] = None,
+    reply_to_monoforum_id: Union[int, str] = None,
+    reply_to_chat_id: Union[int, str] = None,
     quote_text: str = None,
     quote_entities: List["types.MessageEntity"] = None,
     quote_offset: int = None,
@@ -458,7 +460,37 @@ async def get_reply_to(
 ):
     reply_to = None
     reply_to_chat = None
-    if reply_to_monoforum_id:
+
+    if reply_parameters:
+        if reply_parameters.message_id:
+            text, entities = (await parse_text_entities(client, reply_parameters.quote, parse_mode, reply_parameters.quote_entities)).values()
+            if reply_parameters.chat_id is not None:
+                reply_to_chat = await client.resolve_peer(reply_parameters.chat_id)
+            reply_to = types.InputReplyToMessage(
+                reply_to_message_id=reply_parameters.message_id,
+                message_thread_id=reply_parameters.message_thread_id or message_thread_id,
+                reply_to_chat=reply_to_chat,
+                quote_text=text,
+                quote_entities=entities,
+                quote_offset=reply_parameters.quote_position,
+            )
+        elif reply_parameters.story_id:
+            peer = await client.resolve_peer(chat_id or reply_parameters.chat_id)
+            reply_to = types.InputReplyToStory(
+                peer=peer,
+                story_id=reply_parameters.story_id
+            )
+        elif reply_parameters.monoforum_id:
+            peer = await client.resolve_peer(reply_parameters.monoforum_id)
+            reply_to = types.InputReplyToMonoforum(
+                monoforum_peer=peer
+            )
+        if direct_messages_topic_id:
+            reply_to = types.InputReplyToMessage(
+                reply_to_message_id=0,
+                message_thread_id=direct_messages_topic_id
+            )
+    elif reply_to_monoforum_id:
         peer = await client.resolve_peer(reply_to_monoforum_id)
         reply_to = types.InputReplyToMonoforum(
             monoforum_peer=peer
