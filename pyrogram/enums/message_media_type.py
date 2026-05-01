@@ -1,4 +1,3 @@
-
 from enum import auto
 
 from .auto_name import AutoName
@@ -42,7 +41,7 @@ class MessageMediaType(AutoName):
     POLL = auto()
     "Poll media"
 
-    WEB_PAGE_PREVIEW = auto()
+    WEB_PAGE = auto()
     "Web page preview media"
 
     DICE = auto()
@@ -57,6 +56,9 @@ class MessageMediaType(AutoName):
     GIVEAWAY_RESULT = auto()
     "Giveaway result media"
 
+    GIVEAWAY_WINNERS = auto()
+    "Giveaway winners media"
+
     STORY = auto()
     "Forwarded story media"
 
@@ -66,5 +68,8 @@ class MessageMediaType(AutoName):
     PAID_MEDIA = auto()
     "Paid media"
 
-    TODO = auto()
-    "To-Do list media"
+    CHECKLIST = auto()
+    "Checklist (to-do list) media"
+
+    UNSUPPORTED = auto()
+    "Unsupported media type"
