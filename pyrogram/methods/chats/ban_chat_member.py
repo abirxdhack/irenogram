@@ -18,6 +18,7 @@ class BanChatMember:
         In the case of supergroups and channels, the user will not be able to return to the group on their own using
         invite links, etc., unless unbanned first. You must be an administrator in the chat for this to work and must
         have the appropriate admin rights.
+        Pass False for all boolean parameters to demote a user.
 
         .. include:: /_includes/usable-by/users-bots.rst
 
