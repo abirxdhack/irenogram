@@ -1,4 +1,3 @@
-
 import asyncio
 import base64
 import functools
@@ -112,7 +111,7 @@ async def parse_messages(
             }
 
             message_reply_to_story = {
-                i.id: {'user_id': i.reply_to.user_id, 'story_id': i.reply_to.story_id}
+                i.id: {'peer': i.reply_to.peer, 'story_id': i.reply_to.story_id}
                 for i in messages.messages
                 if not isinstance(i, raw.types.MessageEmpty) and i.reply_to and isinstance(i.reply_to, raw.types.MessageReplyStoryHeader)
             }
@@ -150,7 +149,7 @@ async def parse_messages(
                 reply_messages = {}
                 for msg_id in message_reply_to_story.keys():
                     reply_messages[msg_id] = await client.get_stories(
-                        message_reply_to_story[msg_id]['user_id'],
+                        get_peer_id(message_reply_to_story[msg_id]['peer']),
                         message_reply_to_story[msg_id]['story_id']
                     )
 
@@ -171,7 +170,7 @@ async def parse_messages(
 
     return types.List(parsed_messages)
 
-def parse_deleted_messages(client, update, business_connection_id: str = None) -> List["types.Message"]:
+def parse_deleted_messages(client, update, users=None, chats=None, business_connection_id: str = None) -> List["types.Message"]:
     messages = update.messages
     channel_id = getattr(update, "channel_id", None)
 
