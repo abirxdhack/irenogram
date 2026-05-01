@@ -13,6 +13,7 @@ class SendPoll:
         chat_id: Union[int, str],
         question: Union[str, "types.FormattedText"],
         options: List[Union[str, "types.InputPollOption"]],
+        media: Optional["types.InputMedia"] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
@@ -23,6 +24,7 @@ class SendPoll:
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
+        correct_option_id: Optional[int] = None,
         explanation: Optional[Union[str, "types.FormattedText"]] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
@@ -67,6 +69,10 @@ class SendPoll:
             options (List of :obj:`~pyrogram.types.InputPollOption`):
                 List of 2-12 answer options.
 
+            media (:obj:`~pyrogram.types.InputMediaPhoto` | :obj:`~pyrogram.types.InputMediaVideo` | :obj:`~pyrogram.types.InputMediaSticker` | :obj:`~pyrogram.types.Location`, *optional*):
+                Media attached to the poll.
+                Currently supports only photo, video, sticker or location.
+
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
                 For supergroups only.
@@ -101,6 +107,9 @@ class SendPoll:
 
             correct_option_ids (List of ``int``, *optional*):
                 List of monotonically increasing 0-based identifiers of the correct answer options, required for polls in quiz mode.
+
+            correct_option_id (``int``, *optional*):
+                0-based identifier of the correct answer option for single-answer quizzes. Alternative to ``correct_option_ids``.
 
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
@@ -170,7 +179,48 @@ class SendPoll:
                         types.InputPollOption(text="Maybe")
                     ]
                 )
+
+                await app.send_poll(
+                    chat_id=chat_id,
+                    question="2 + 2 = ?",
+                    options=["3", "4", "5"],
+                    type="quiz",
+                    correct_option_id=1
+                )
+
+                await app.send_poll(
+                    chat_id=chat_id,
+                    question="Where we are?",
+                    media=types.InputMediaPhoto("photo.jpg"),
+                    options=[
+                        types.InputPollOption(
+                            text="Maybe here?",
+                            media=types.InputMediaPhoto("photo1.jpg")
+                        ),
+                        types.InputPollOption(
+                            text="Or here?",
+                            media=types.Location(
+                                longitude=49.807760,
+                                latitude=73.088504
+                            ),
+                        ),
+                    ]
+                )
         """
+        if media is not None and not isinstance(
+            media,
+            (
+                types.InputMediaPhoto,
+                types.InputMediaVideo,
+                types.InputMediaSticker,
+                types.Location,
+            ),
+        ):
+            raise ValueError("Unsupported media type")
+
+        if correct_option_id is not None and correct_option_ids is None:
+            correct_option_ids = [correct_option_id]
+
         if isinstance(question, str):
             question = types.FormattedText(text=question)
 
@@ -228,6 +278,7 @@ class SendPoll:
                         close_date=utils.datetime_to_timestamp(close_date)
                     ),
                     correct_answers=correct_option_ids,
+                    attached_media=await media.write(client=self) if media is not None else None,
                     solution=solution,
                     solution_entities=solution_entities
                 ),
