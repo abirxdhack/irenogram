@@ -302,7 +302,18 @@ p code.literal:hover {
 }
 
 p code.xref.literal {
-    border-width: 1px;
+    border-width: 0;
+}
+
+dl.field-list p code.xref,
+dl.field-list p code.literal,
+dl.field-list a code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-weight: 600;
+    color: var(--color-brand-content);
+    font-family: "Ubuntu Mono", monospace;
 }
 
 .admonition {
@@ -794,16 +805,6 @@ dl.field-list > dt:hover {
     transform: none !important;
 }
 
-dl.field-list > dt::after {
-    content: "";
-    display: block;
-    width: 2.5em;
-    height: 2px;
-    background: var(--color-brand-content);
-    border-radius: 1px;
-    margin-top: 3px;
-    opacity: 0.6;
-}
 
 dl.field-list > dd {
     margin-left: 1rem;
