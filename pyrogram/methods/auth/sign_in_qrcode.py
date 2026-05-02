@@ -1,93 +1,94 @@
-
 import logging
-from base64 import b64encode
 from typing import Union
 
 import pyrogram
-from pyrogram import raw
-from pyrogram import types
-from pyrogram.session import Session, Auth
+from pyrogram import raw, types
 
 log = logging.getLogger(__name__)
 
+
 class SignInQrcode:
     async def sign_in_qrcode(
-        self: "pyrogram.Client"
+        self: "pyrogram.Client",
+        except_ids: list = None,
     ) -> Union["types.User", "types.LoginToken"]:
-        """Authorize a user in Telegram with a QR code.
+        """Request a QR code login token and display it in the terminal.
+
+        This method exports a login token from Telegram, renders it as an ASCII QR code
+        in the terminal, and returns immediately. Call it in a loop alongside
+        :meth:`~pyrogram.Client.authorize_qr` when you need fine-grained control;
+        for the fully-managed flow use :meth:`~pyrogram.Client.start` with
+        ``use_qr=True`` instead.
 
         .. include:: /_includes/usable-by/users.rst
 
+        Parameters:
+            except_ids (List of ``int``, *optional*):
+                Already logged-in user IDs to exclude, so the same account cannot be
+                authorized twice via the same QR session.
+
         Returns:
-            :obj:`~pyrogram.types.User` | :obj:`pyrogram.types.LoginToken`, in case the
-            authorization completed, the user is returned. In case the QR code is
-            not scanned, a login token is returned.
+            :obj:`~pyrogram.types.User`: When the QR code was already scanned and
+            authorization completed in this single call.
+
+            :obj:`~pyrogram.types.LoginToken`: When the QR code has been displayed
+            and is awaiting a scan.
 
         Raises:
-            :raises ImportError: In case the qrcode library is not installed.
-            :raises ~pyrogram.errors.SessionPasswordNeeded: In case a password is needed to sign in.
+            ImportError: The ``qrcode`` package is not installed.
+            ~pyrogram.errors.SessionPasswordNeeded: The account has 2FA enabled;
+                handle this by prompting for and checking the password.
         """
-
         try:
-            import qrcode
+            import qrcode as qrcode_lib
         except ImportError:
-            raise ImportError("qrcode is missing! "
-                            "Please install it with `pip install qrcode`")
-        r = await self.session.invoke(
+            raise ImportError(
+                "The qrcode package is required for QR code login. "
+                "Install it with: pip install qrcode"
+            )
+
+        r = await self.invoke(
             raw.functions.auth.ExportLoginToken(
                 api_id=self.api_id,
                 api_hash=self.api_hash,
-                except_ids=[]
+                except_ids=except_ids or [],
             )
         )
+
+        if isinstance(r, raw.types.auth.LoginTokenMigrateTo):
+            await self.set_dc(r.dc_id)
+            r = await self.invoke(
+                raw.functions.auth.ImportLoginToken(token=r.token)
+            )
+
+        if isinstance(r, raw.types.auth.LoginTokenSuccess):
+            user = types.User._parse(self, r.authorization.user)
+            await self.storage.user_id(user.id)
+            await self.storage.is_bot(False)
+            return user
+
         if isinstance(r, raw.types.auth.LoginToken):
-            base64_token = b64encode(r.token).decode("utf-8")
-            login_url = f"tg://login?token={base64_token}"
-            qr = qrcode.QRCode(
+            import base64
+
+            login_url = "tg://login?token={}".format(
+                base64.urlsafe_b64encode(r.token).decode("utf-8")
+            )
+
+            qr = qrcode_lib.QRCode(
                 version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                error_correction=qrcode_lib.constants.ERROR_CORRECT_L,
                 box_size=10,
                 border=4,
             )
             qr.add_data(login_url)
             qr.make(fit=True)
 
-            print("Scan the QR code with your Telegram app.")
-            qr.print_ascii()
+            print(
+                "Scan the QR code below with your Telegram app.\n"
+                "Settings -> Privacy and Security -> Active Sessions -> Scan QR Code."
+            )
+            qr.print_ascii(tty=True)
 
             return types.LoginToken._parse(r)
-        if isinstance(r, raw.types.auth.LoginTokenSuccess):
-            await self.storage.user_id(r.authorization.user.id)
-            await self.storage.is_bot(False)
 
-            return types.User._parse(self, r.authorization.user)
-        if isinstance(r, raw.types.auth.LoginTokenMigrateTo):
-
-            await self.session.stop()
-
-            await self.storage.dc_id(r.dc_id)
-            await self.storage.auth_key(
-                await Auth(
-                    self, await self.storage.dc_id(),
-                    await self.storage.test_mode()
-                ).create()
-            )
-            self.session = Session(
-                self, await self.storage.dc_id(),
-                await self.storage.auth_key(), await self.storage.test_mode()
-            )
-
-            await self.session.start()
-            r = await self.session.invoke(
-                raw.functions.auth.ImportLoginToken(
-                    token=r.token
-                )
-            )
-            if isinstance(r, raw.types.auth.LoginTokenSuccess):
-                await self.storage.user_id(r.authorization.user.id)
-                await self.storage.is_bot(False)
-
-                return types.User._parse(self, r.authorization.user)
-        raise pyrogram.exceptions.RPCError(
-            "Unknown response type from Telegram API"
-        )
+        raise ValueError("Unexpected response from auth.ExportLoginToken: {}".format(r))
