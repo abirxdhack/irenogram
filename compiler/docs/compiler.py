@@ -578,7 +578,7 @@ def pyrogram_api():
         f.write(".. hlist::\n")
         f.write("    :columns: 3\n\n")
         for enum in enums:
-            f.write("    * :class:`{}`\n".format(enum))
+            f.write("    * :doc:`{}`\n".format(enum))
         f.write("\n")
         f.write(".. toctree::\n")
         f.write("    :hidden:\n\n")
@@ -592,7 +592,6 @@ def pyrogram_api():
             f2.write("    :members:\n")
             f2.write("    :undoc-members:\n")
             f2.write("    :show-inheritance:\n")
-            f2.write("    :no-index:\n")
 
     categories = dict(
         message="""
