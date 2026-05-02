@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
@@ -52,6 +51,10 @@ class Poll(Object, Update):
             Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll,
             0-200 characters.
 
+        explanation_media (:obj:`~pyrogram.types.MessageContent`, *optional*):
+            Media that is shown when the user chooses an incorrect answer or taps on the lamp icon.
+            May be None if none or the poll is unanswered yet.
+
         open_period (``int``, *optional*):
             Amount of time in seconds the poll will be active after creation.
 
@@ -60,6 +63,10 @@ class Poll(Object, Update):
 
         description (:obj:`~pyrogram.types.FormattedText`, *optional*):
             Description of the poll.
+            Only for polls inside the :obj:`~pyrogram.types.Message` object.
+
+        description_media (:obj:`~pyrogram.types.MessageContent`, *optional*):
+            Media attached to the poll.
             Only for polls inside the :obj:`~pyrogram.types.Message` object.
 
         voter (:obj:`~pyrogram.types.User`, *optional*):
@@ -82,9 +89,11 @@ class Poll(Object, Update):
         chosen_option_ids: Optional[List[int]] = None,
         correct_option_ids: Optional[List[int]] = None,
         explanation: Optional["types.FormattedText"] = None,
+        explanation_media: Optional["types.MessageContent"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
         description: Optional["types.FormattedText"] = None,
+        description_media: Optional["types.MessageContent"] = None,
         voter: Optional["types.User"] = None,
     ):
         super().__init__(client)
@@ -101,13 +110,15 @@ class Poll(Object, Update):
         self.chosen_option_ids = chosen_option_ids
         self.correct_option_ids = correct_option_ids
         self.explanation = explanation
+        self.explanation_media = explanation_media
         self.open_period = open_period
         self.close_date = close_date
         self.description = description
+        self.description_media = description_media
         self.voter = voter
 
     @staticmethod
-    def _parse(
+    async def _parse(
         client,
         media_poll: Union["raw.types.MessageMediaPoll", "raw.types.UpdateMessagePoll"],
         description: Optional["types.FormattedText"] = None,
@@ -146,6 +157,9 @@ class Poll(Object, Update):
                 types.PollOption(
                     persistent_id=answer.option.decode(),
                     text=types.FormattedText._parse(client, answer.text),
+                    media=await types.MessageContent._parse(
+                        client, answer.media, users=users, chats=chats
+                    ) if answer.media else None,
                     voter_count=voter_count,
                     vote_percentage=vote_percentages[i],
                     recent_voters=types.List(
@@ -194,14 +208,28 @@ class Poll(Object, Update):
             )
             if poll_results.solution
             else None,
+            explanation_media=await types.MessageContent._parse(
+                client,
+                poll_results.solution_media,
+                users=users,
+                chats=chats,
+            )
+            if poll_results.solution_media
+            else None,
             open_period=poll.close_period,
             close_date=utils.timestamp_to_datetime(poll.close_date),
             description=description,
+            description_media=await types.MessageContent._parse(
+                client,
+                media_poll.attached_media,
+                users=users,
+                chats=chats,
+            ) if getattr(media_poll, "attached_media", None) else None,
             client=client,
         )
 
     @staticmethod
-    def _parse_update(
+    async def _parse_update(
         client,
         update: Union["raw.types.UpdateMessagePoll", "raw.types.UpdateMessagePollVote"],
         users: Dict[int, "raw.types.User"] = {},
@@ -209,7 +237,7 @@ class Poll(Object, Update):
     ) -> "Poll":
         if isinstance(update, raw.types.UpdateMessagePoll):
             if update.poll is not None:
-                return Poll._parse(client, update)
+                return await Poll._parse(client, update, users=users, chats=chats)
 
             results = update.results.results
             chosen_option_ids = []
