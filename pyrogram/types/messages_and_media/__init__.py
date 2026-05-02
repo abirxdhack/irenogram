@@ -1,4 +1,3 @@
-
 from .alternative_video import AlternativeVideo
 from .group_call_message import GroupCallMessage
 from .story_album import StoryAlbum
@@ -22,6 +21,7 @@ from .media_area import MediaArea
 from .media_area_channel_post import MediaAreaChannelPost
 from .media_area_coordinates import MediaAreaCoordinates
 from .message import Message
+from .message_content import MessageContent
 from .message_entity import MessageEntity
 from .message_origin import MessageOrigin
 from .message_origin_channel import MessageOriginChannel
@@ -329,5 +329,6 @@ __all__ = [
     "UpgradedGiftPurchaseOffer",
     "UpgradedGiftPurchaseOfferRejected",
     "UpgradedGiftValueInfo",
-    "WriteAccessAllowed"
+    "WriteAccessAllowed",
+    "MessageContent"
 ]
