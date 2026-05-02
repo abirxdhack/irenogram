@@ -1,4 +1,3 @@
-
 from .add_collection_gifts import AddCollectionGifts
 from .apply_gift_code import ApplyGiftCode
 from .buy_gift_upgrade import BuyGiftUpgrade
@@ -44,6 +43,8 @@ from .suggest_birthday import SuggestBirthday
 from .transfer_gift import TransferGift
 from .upgrade_gift import UpgradeGift
 
+from .create_invoice_link import CreateInvoiceLink
+from .send_invoice import SendInvoice
 from .convert_gift import ConvertGift
 from .create_star_gift_collection import CreateStarGiftCollection
 from .delete_passkey import DeletePasskey
@@ -106,6 +107,8 @@ class Payments(
     SuggestBirthday,
     TransferGift,
     UpgradeGift,
+    CreateInvoiceLink,
+    SendInvoice,
     ConvertGift,
     CreateStarGiftCollection,
     DeletePasskey,
