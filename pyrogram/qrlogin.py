@@ -1,72 +1,81 @@
 import asyncio
 import base64
-from typing import Optional, List
+import datetime
+import logging
+from typing import List, Optional
 
 import pyrogram
 from pyrogram import raw, types
 
+log = logging.getLogger(__name__)
+
 
 class QRLogin:
-    """QR Code Login handler for Pyrogram."""
+    """Handles the QR code login flow for Irenogram."""
 
     def __init__(self, client: "pyrogram.Client", except_ids: List[int] = None):
         self.client = client
         self.except_ids = except_ids or []
-        self.token: Optional[bytes] = None
-        self.url: Optional[str] = None
-        self.expires_in: Optional[int] = None
+        self.r: "raw.base.auth.LoginToken" = None
 
-    async def request(self) -> "QRLogin":
-        """Request a new QR code token."""
-        r = await self.client.invoke(
+    async def recreate(self):
+        """Request a fresh QR code token from Telegram and store the raw response."""
+        self.r = await self.client.invoke(
             raw.functions.auth.ExportLoginToken(
                 api_id=self.client.api_id,
                 api_hash=self.client.api_hash,
-                except_ids=self.except_ids
+                except_ids=self.except_ids,
             )
         )
 
-        if isinstance(r, raw.types.auth.LoginToken):
-            self.token = r.token
-            self.url = f"tg://login?token={base64.urlsafe_b64encode(r.token).decode().rstrip('=')}"
-            self.expires_in = r.expires - int(asyncio.get_event_loop().time())
+    @property
+    def url(self) -> str:
+        """The tg:// deep-link URL that encodes the current login token."""
+        return "tg://login?token={}".format(
+            base64.urlsafe_b64encode(self.r.token).decode("utf-8")
+        )
 
-        return self
+    async def wait(self, timeout: float = None) -> Optional["types.User"]:
+        """Wait until the QR code is scanned and return the logged-in :obj:`~pyrogram.types.User`.
 
-    async def wait(self, timeout: float = 30) -> Optional["types.User"]:
-        """Wait for the QR code to be scanned."""
-        try:
-            updates = await asyncio.wait_for(
-                self._poll(),
-                timeout=timeout
-            )
-            return updates
-        except asyncio.TimeoutError:
-            return None
+        Parameters:
+            timeout (``float``, *optional*):
+                Maximum seconds to wait before raising :exc:`asyncio.TimeoutError`.
+                Defaults to the token's own expiry window.
 
-    async def _poll(self) -> Optional["types.User"]:
-        while True:
-            try:
+        Returns:
+            :obj:`~pyrogram.types.User`: The authorised user.
+
+        Raises:
+            asyncio.TimeoutError: The token expired before being scanned.
+            ~pyrogram.errors.SessionPasswordNeeded: The account has 2FA enabled.
+            ~pyrogram.errors.AuthTokenExpired: The auth token has expired.
+        """
+        if timeout is None:
+            timeout = self.r.expires - int(datetime.datetime.now().timestamp())
+
+        async def _poll() -> Optional["types.User"]:
+            while True:
                 r = await self.client.invoke(
                     raw.functions.auth.ExportLoginToken(
                         api_id=self.client.api_id,
                         api_hash=self.client.api_hash,
-                        except_ids=self.except_ids
+                        except_ids=self.except_ids,
                     )
                 )
 
-                if isinstance(r, raw.types.auth.LoginTokenSuccess):
-                    auth = r.authorization
-                    if isinstance(auth, raw.types.auth.Authorization):
-                        await self.client.storage.user_id(auth.user.id)
-                        await self.client.storage.is_bot(False)
-                        return types.User._parse(self.client, auth.user)
-
                 if isinstance(r, raw.types.auth.LoginTokenMigrateTo):
-                    await self.client._switch_dc(r.dc_id)
-                    continue
+                    await self.client.set_dc(r.dc_id)
+                    r = await self.client.invoke(
+                        raw.functions.auth.ImportLoginToken(token=r.token)
+                    )
 
-            except Exception:
-                pass
+                if isinstance(r, raw.types.auth.LoginTokenSuccess):
+                    user = types.User._parse(self.client, r.authorization.user)
+                    await self.client.storage.user_id(user.id)
+                    await self.client.storage.is_bot(False)
+                    return user
 
-            await asyncio.sleep(1)
+                await asyncio.sleep(3)
+
+        return await asyncio.wait_for(_poll(), timeout=timeout)
