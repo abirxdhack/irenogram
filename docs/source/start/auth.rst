@@ -79,23 +79,76 @@ For automated deployments, you can pass the phone number and a code callback to 
 QR Code Login
 -------------
 
-Irenogram also supports QR code login for user accounts. This allows you to scan a QR code from an already-logged-in
-Telegram client:
+Irenogram supports QR code login for user accounts. Instead of typing your phone number and a confirmation code,
+you scan a QR code from any already-logged-in Telegram client.
+
+First install the ``qrcode`` package:
+
+.. code-block:: bash
+
+    pip install qrcode
+
+Then pass ``use_qr=True`` to :meth:`~pyrogram.Client.start`:
 
 .. code-block:: python
 
+    import asyncio
     from pyrogram import Client
 
-    app = Client("my_account", api_id=12345, api_hash="...")
+    async def main():
+        app = Client("my_account", api_id=12345, api_hash="...")
+        await app.start(use_qr=True)
+
+        me = await app.get_me()
+        print(f"Logged in as {me.first_name}")
+
+        await app.stop()
+
+    asyncio.run(main())
+
+When the script runs it will print an ASCII QR code to your terminal. Open Telegram on any device where you are
+already logged in, go to **Settings → Privacy and Security → Active Sessions → Scan QR Code**, and scan it.
+
+If your account has **two-step verification (2FA)** enabled, you will be prompted to enter your password after
+scanning.
+
+Using the context manager is also supported:
+
+.. code-block:: python
+
+    import asyncio
+    from pyrogram import Client
 
     async def main():
-        async with app:
-            # QR code will be printed to the terminal
+        async with Client("my_account", api_id=12345, api_hash="...") as app:
+            await app.start(use_qr=True)
             me = await app.get_me()
             print(f"Logged in as {me.first_name}")
 
-    import asyncio
     asyncio.run(main())
+
+To prevent the same account from being authorized twice in a multi-user setup, pass ``except_ids``:
+
+.. code-block:: python
+
+    import asyncio
+    from pyrogram import Client
+
+    async def main():
+        app = Client("my_account", api_id=12345, api_hash="...")
+        await app.start(use_qr=True, except_ids=[123456789])
+
+        me = await app.get_me()
+        print(f"Logged in as {me.first_name}")
+
+        await app.stop()
+
+    asyncio.run(main())
+
+.. note::
+
+    ``except_ids`` accepts a list of Telegram user IDs. Any account whose ID appears in the list will not be
+    offered as a login option when scanning the QR code from another device.
 
 Session Management
 ------------------
