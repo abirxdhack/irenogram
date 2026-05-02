@@ -1545,7 +1545,7 @@ class Message(Object, Update):
                 media_type = enums.MessageMediaType.WEB_PAGE
                 web_page = types.WebPage._parse(client, media)
             elif isinstance(media, raw.types.MessageMediaPoll):
-                poll = types.Poll._parse(
+                poll = await types.Poll._parse(
                     client,
                     media,
                     description=types.FormattedText._parse(
@@ -8741,8 +8741,8 @@ class Message(Object, Update):
                     longitude=self.venue.location.longitude,
                     title=self.venue.title,
                     address=self.venue.address,
-                    foursquare_id=self.venue.foursquare_id,
-                    foursquare_type=self.venue.foursquare_type,
+                    foursquare_id=self.venue.foursquare_id or "",
+                    foursquare_type=self.venue.foursquare_type or "",
                     disable_notification=disable_notification,
                     message_thread_id=message_thread_id,
                     reply_parameters=reply_parameters,
@@ -8782,6 +8782,18 @@ class Message(Object, Update):
                     disable_notification=disable_notification,
                     allow_paid_broadcast=allow_paid_broadcast,
                     message_thread_id=message_thread_id
+                )
+            elif self.dice:
+                return await self._client.send_dice(
+                    chat_id,
+                    emoji=self.dice.emoji,
+                    disable_notification=disable_notification,
+                    message_thread_id=message_thread_id,
+                    reply_parameters=reply_parameters,
+                    schedule_date=schedule_date,
+                    protect_content=protect_content,
+                    allow_paid_broadcast=allow_paid_broadcast,
+                    business_connection_id=business_connection_id
                 )
             else:
                 raise ValueError("Unknown media type")
