@@ -759,25 +759,87 @@ table > caption {
     animation: fadeInUp 0.6s ease-out;
 }
 
-dt {
+dt.sig {
     text-transform: none !important;
     background: linear-gradient(135deg, rgba(224, 64, 0, 0.08), rgba(224, 64, 0, 0.04)) !important;
     border-radius: var(--border-radius) !important;
-    padding: 2px 8px;
+    padding: 4px 10px;
     width: fit-content;
     border-left: 2px solid var(--color-brand-content) !important;
     transition: all var(--transition-fast);
 }
 
-dt:hover {
+dt.sig:hover {
     background: linear-gradient(135deg, rgba(224, 64, 0, 0.15), rgba(224, 64, 0, 0.08)) !important;
     transform: translateX(4px);
 }
 
-.sig-prename,
+dl.field-list > dt {
+    background: none !important;
+    border-left: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    font-family: "Open Sans", sans-serif !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: var(--color-foreground-primary) !important;
+    letter-spacing: 0.01em;
+    margin-bottom: 0.3rem;
+    margin-top: 0.85rem;
+}
+
+dl.field-list > dt:hover {
+    background: none !important;
+    transform: none !important;
+}
+
+dl.field-list > dt::after {
+    content: "";
+    display: block;
+    width: 2.5em;
+    height: 2px;
+    background: var(--color-brand-content);
+    border-radius: 1px;
+    margin-top: 3px;
+    opacity: 0.6;
+}
+
+dl.field-list > dd {
+    margin-left: 1rem;
+}
+
+dl.field-list > dd > ul {
+    margin: 0.2rem 0 0 0;
+    padding-left: 1.2rem;
+}
+
+dl.field-list > dd > ul > li {
+    margin-bottom: 0.2rem;
+}
+
+.sig-prename {
+    color: var(--color-foreground-muted);
+    font-weight: 400;
+    font-size: 0.95em;
+}
+
 .sig-name {
     color: var(--color-foreground-primary);
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.05em;
+}
+
+em.property {
+    font-style: normal;
+    font-weight: 400;
+    color: var(--color-foreground-muted);
+    font-size: 0.9em;
+}
+
+.sig-paren {
+    color: var(--color-foreground-muted);
+    font-weight: 400;
 }
 
 .banner {
