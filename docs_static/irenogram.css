@@ -968,9 +968,10 @@ dt.sig .property {
 .sidebar-logo-container {
     margin-top: 20px;
     margin-bottom: 0;
-    padding-bottom: 8px;
     animation: slideInLeft 0.5s ease-out;
-    overflow: visible;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .sidebar-logo {
@@ -978,8 +979,7 @@ dt.sig .property {
     display: inline;
     filter: drop-shadow(0 0 8px rgba(224, 64, 0, 0.2));
     transition: all var(--transition-normal);
-    margin-right: 4px;
-    vertical-align: middle;
+    flex-shrink: 0;
 }
 
 .sidebar-logo:hover {
@@ -993,23 +993,13 @@ dt.sig .property {
     color: var(--color-irenogram-text);
     letter-spacing: 0.0425em;
     position: relative;
-    top: -4px;
+    top: -6px;
     font-weight: bold;
-    display: inline-block;
+    display: inline;
     background: linear-gradient(135deg, var(--color-irenogram-text), var(--color-brand-content));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     transition: all var(--transition-normal);
-    overflow: visible;
-    white-space: nowrap;
-    padding-bottom: 4px;
-    vertical-align: middle;
-    line-height: 1;
-}
-
-.sidebar-logo-container .irenogram-text {
-    display: inline-block;
-    vertical-align: bottom;
-    margin-left: 2px;
+    padding-bottom: 6px;
 }
