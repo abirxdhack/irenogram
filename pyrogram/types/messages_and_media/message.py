@@ -1469,10 +1469,10 @@ class Message(Object, Update):
                 media_type = enums.MessageMediaType.PHOTO
                 has_media_spoiler = media.spoiler
             elif isinstance(media, raw.types.MessageMediaGeo):
-                location = types.Location._parse(media.geo)
+                location = types.Location._parse(client, media.geo)
                 media_type = enums.MessageMediaType.LOCATION
             elif isinstance(media, raw.types.MessageMediaGeoLive):
-                location = types.Location._parse_media(media)
+                location = types.Location._parse_media(client, media)
                 media_type = enums.MessageMediaType.LOCATION
             elif isinstance(media, raw.types.MessageMediaContact):
                 contact = types.Contact._parse(client, media)
@@ -8745,10 +8745,10 @@ class Message(Object, Update):
                     foursquare_type=self.venue.foursquare_type or "",
                     disable_notification=disable_notification,
                     message_thread_id=message_thread_id,
-                    reply_parameters=reply_parameters,
+                    reply_to_message_id=reply_parameters.message_id if reply_parameters else None,
+                    reply_to_chat_id=reply_parameters.chat_id if reply_parameters else None,
                     schedule_date=schedule_date,
                     allow_paid_broadcast=allow_paid_broadcast,
-                    paid_message_star_count=paid_message_star_count,
                     business_connection_id=business_connection_id
                 )
             elif self.poll:
@@ -8789,7 +8789,8 @@ class Message(Object, Update):
                     emoji=self.dice.emoji,
                     disable_notification=disable_notification,
                     message_thread_id=message_thread_id,
-                    reply_parameters=reply_parameters,
+                    reply_to_message_id=reply_parameters.message_id if reply_parameters else None,
+                    reply_to_chat_id=reply_parameters.chat_id if reply_parameters else None,
                     schedule_date=schedule_date,
                     protect_content=protect_content,
                     allow_paid_broadcast=allow_paid_broadcast,
