@@ -1,5 +1,4 @@
-
-from .input_chat_photo import InputChatPhoto, InputChatPhotoPrevious, InputChatPhotoStatic, InputChatPhotoAnimation, InputChatPhotoPrevious, InputChatPhotoStatic, InputChatPhotoAnimation
+from .input_chat_photo import InputChatPhoto, InputChatPhotoPrevious, InputChatPhotoStatic, InputChatPhotoAnimation
 from .input_checklist import InputChecklist
 from .input_contact_message_content import InputContactMessageContent
 from .input_credentials import InputCredentials
@@ -18,6 +17,7 @@ from .input_media_audio import InputMediaAudio
 from .input_media_document import InputMediaDocument
 from .input_media_photo import InputMediaPhoto
 from .input_media_video import InputMediaVideo
+from .input_media_sticker import InputMediaSticker
 from .input_message_content import InputMessageContent
 from .input_phone_contact import InputPhoneContact
 from .input_poll_option import InputPollOption
@@ -60,6 +60,7 @@ __all__ = [
     "InputMediaDocument",
     "InputMediaPhoto",
     "InputMediaVideo",
+    "InputMediaSticker",
     "InputMessageContent",
     "InputPhoneContact",
     "InputPollOption",
