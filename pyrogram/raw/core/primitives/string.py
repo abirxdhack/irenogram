@@ -1,8 +1,8 @@
-
 from io import BytesIO
 from typing import cast
 
 from .bytes import Bytes
+
 
 class String(Bytes):
     @classmethod
