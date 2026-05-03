@@ -1,4 +1,3 @@
-
 from .future_salt import FutureSalt
 from .future_salts import FutureSalts
 from .gzip_packed import GzipPacked
@@ -11,6 +10,7 @@ from .primitives.double import Double
 from .primitives.int import Int, Long, Int128, Int256
 from .primitives.string import String
 from .primitives.vector import Vector
+from .base_type_meta import BaseTypeMeta
 from .tl_object import TLObject
 
 __all__ = [
@@ -31,5 +31,6 @@ __all__ = [
     "Int256",
     "String",
     "Vector",
+    "BaseTypeMeta",
     "TLObject"
 ]
