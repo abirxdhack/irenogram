@@ -143,27 +143,27 @@ body {
     --color-background-border: #dddddd;
     --color-guilabel-background: #f3f2f1;
     --color-guilabel-border: #dddddd;
-    
+
     --color-admonition-title--note: #E04000;
     --color-admonition-title-background--note: #fff5ed;
     --color-admonition-border--note: #ffb88c;
-    
+
     --color-admonition-title--seealso: #E04000;
     --color-admonition-title-background--seealso: #fff5ed;
     --color-admonition-border--seealso: #ffb88c;
-    
+
     --color-admonition-title--tip: #00a651;
     --color-admonition-title-background--tip: #eef9f4;
     --color-admonition-border--tip: #7edcc4;
-    
+
     --color-admonition-title--warning: #d97706;
     --color-admonition-title-background--warning: #fffbeb;
     --color-admonition-border--warning: #fcd34d;
-    
+
     --color-admonition-title--danger: #dc2626;
     --color-admonition-title-background--danger: #fef2f2;
     --color-admonition-border--danger: #fca5a5;
-    
+
     --color-admonition-title: #E04000;
     --color-admonition-title-background: #fff5ed;
     --color-admonition-border: #ffb88c;
@@ -208,27 +208,27 @@ body[data-theme="dark"] {
     --color-table-border: #707070;
     --color-guilabel-background: #323232;
     --color-guilabel-border: #505050;
-    
+
     --color-admonition-title--note: #ff9966;
     --color-admonition-title-background--note: #3d2817;
     --color-admonition-border--note: #ff7a44;
-    
+
     --color-admonition-title--seealso: #ff9966;
     --color-admonition-title-background--seealso: #3d2817;
     --color-admonition-border--seealso: #ff7a44;
-    
+
     --color-admonition-title--tip: #34d399;
     --color-admonition-title-background--tip: #064e3b;
     --color-admonition-border--tip: #10b981;
-    
+
     --color-admonition-title--warning: #fbbf24;
     --color-admonition-title-background--warning: #422006;
     --color-admonition-border--warning: #f59e0b;
-    
+
     --color-admonition-title--danger: #f87171;
     --color-admonition-title-background--danger: #3f0f0f;
     --color-admonition-border--danger: #ef4444;
-    
+
     --color-admonition-title: #ff9966;
     --color-admonition-title-background: #3d2817;
     --color-admonition-border: #ff7a44;
@@ -451,7 +451,7 @@ body[data-theme="dark"] .admonition.seealso p.admonition-title {
 }
 
 .admonition.seealso p.admonition-title:before {
-    content: 'ðŸ‘ï¸';
+    content: 'ðŸ‘�ï¸�';
 }
 
 .admonition.tip p.admonition-title {
@@ -475,7 +475,7 @@ body[data-theme="dark"] .admonition.warning p.admonition-title {
 }
 
 .admonition.warning p.admonition-title:before {
-    content: 'âš ï¸';
+    content: 'âš ï¸�';
     animation: iconPulseWarning 1.5s ease-in-out infinite;
 }
 
@@ -777,12 +777,31 @@ dt.sig {
     border: none !important;
     border-left: none !important;
     border-radius: 0 !important;
-    padding: 0 !important;
-    margin: 0.5rem 0 0.25rem 0 !important;
+    padding: 0.4rem 0 !important;
+    margin: 0.6rem 0 0.3rem 0 !important;
     width: auto !important;
     font-weight: 700 !important;
     transition: none !important;
     box-shadow: none !important;
+}
+
+dl.py > dt {
+    margin-left: 0 !important;
+}
+
+dl.py dt.sig {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    text-indent: 0 !important;
+}
+
+dl.py > dd {
+    margin-left: 0 !important;
+    padding-left: 1.2rem !important;
+}
+
+dl.py dl.py {
+    margin-left: 0 !important;
 }
 
 dt.sig:hover {
@@ -819,7 +838,8 @@ dl.field-list > dt:hover {
 
 
 dl.field-list > dd {
-    margin-left: 1rem;
+    margin-left: 0 !important;
+    padding-left: 1.2rem !important;
 }
 
 dl.field-list > dd > ul {
@@ -1458,7 +1478,7 @@ body[role="document"] .ire-search-hero,
     line-height: 1.55;
     margin: .35rem 0 0 0;
 }
-#search-results > li q { quotes: "â€œ" "â€"; font-style: italic; }
+#search-results > li q { quotes: "â€œ" "â€�"; font-style: italic; }
 #search-results .highlighted,
 #search-results > li strong {
     background: linear-gradient(120deg, rgba(255,221,87,0.55), rgba(255,221,87,0.25));
