@@ -165,10 +165,10 @@ class MessageContent(Object):
             photo = types.Photo._parse(client, media.photo, media.ttl_seconds)
             media_type = enums.MessageMediaType.PHOTO
         elif isinstance(media, raw.types.MessageMediaGeo):
-            location = types.Location._parse(media.geo)
+            location = types.Location._parse(client, media.geo)
             media_type = enums.MessageMediaType.LOCATION
         elif isinstance(media, raw.types.MessageMediaGeoLive):
-            location = types.Location._parse_media(media)
+            location = types.Location._parse_media(client, media)
             media_type = enums.MessageMediaType.LOCATION
         elif isinstance(media, raw.types.MessageMediaContact):
             contact = types.Contact._parse(client, media)
