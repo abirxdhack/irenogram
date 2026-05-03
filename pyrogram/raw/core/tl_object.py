@@ -1,14 +1,16 @@
-
 import struct
 from io import BytesIO
 from json import dumps
-from typing import cast, List, Any, Union, Dict
+from typing import cast, List, Any, Union, Dict, TypeVar, Generic
 
 from ..all import objects
 
+ReturnType = TypeVar("ReturnType")
+
 _STRUCT_I = struct.Struct("<I")
 
-class TLObject:
+
+class TLObject(Generic[ReturnType]):
     __slots__: List[str] = []
 
     QUALNAME = "Base"
@@ -64,5 +66,5 @@ class TLObject:
     def __len__(self) -> int:
         return len(self.write())
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+    def __call__(self, *args: Any, **kwargs: Any) -> ReturnType:
         pass
