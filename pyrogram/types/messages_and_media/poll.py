@@ -166,10 +166,8 @@ class Poll(Object, Update):
                         [
                             types.Chat._parse_chat(
                                 client,
-                                users.get(
-                                    utils.get_raw_peer_id(voter_peer)
-                                    or chats.get(utils.get_raw_peer_id(voter_peer))
-                                ),
+                                users.get(utils.get_raw_peer_id(voter_peer))
+                                or chats.get(utils.get_raw_peer_id(voter_peer)),
                             )
                             for voter_peer in result.recent_voters
                         ]
@@ -182,7 +180,7 @@ class Poll(Object, Update):
                     added_by_chat=types.Chat._parse_chat(
                         client, chats.get(utils.get_raw_peer_id(answer.added_by))
                     ),
-                    addition_date=utils.datetime_to_timestamp(getattr(answer, "date", None)),
+                    addition_date=utils.timestamp_to_datetime(getattr(answer, "date", None)),
                     client=client,
                 )
             )
@@ -275,7 +273,7 @@ class Poll(Object, Update):
                     for option in update.options
                 ],
                 is_closed=False,
-                voter=types.User._parse(client, users[update.peer.user_id]),
+                voter=types.User._parse(client, users.get(update.peer.user_id)),
                 client=client,
             )
 
@@ -363,6 +361,6 @@ class Poll(Object, Update):
                await poll.stop()
         """
         return await self._client.stop_poll(
-            chat_id=chat_id or self.chat.id if hasattr(self, "chat") else chat_id,
-            message_id=message_id or self.id if hasattr(self, "id") else message_id
+            chat_id=chat_id,
+            message_id=message_id
         )
