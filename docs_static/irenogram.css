@@ -451,7 +451,7 @@ body[data-theme="dark"] .admonition.seealso p.admonition-title {
 }
 
 .admonition.seealso p.admonition-title:before {
-    content: '👁️';
+    content: 'ðŸ‘ï¸';
 }
 
 .admonition.tip p.admonition-title {
@@ -463,7 +463,7 @@ body[data-theme="dark"] .admonition.tip p.admonition-title {
 }
 
 .admonition.tip p.admonition-title:before {
-    content: '💡';
+    content: 'ðŸ’¡';
 }
 
 .admonition.warning p.admonition-title {
@@ -475,7 +475,7 @@ body[data-theme="dark"] .admonition.warning p.admonition-title {
 }
 
 .admonition.warning p.admonition-title:before {
-    content: '⚠️';
+    content: 'âš ï¸';
     animation: iconPulseWarning 1.5s ease-in-out infinite;
 }
 
@@ -488,7 +488,7 @@ body[data-theme="dark"] .admonition.danger p.admonition-title {
 }
 
 .admonition.danger p.admonition-title:before {
-    content: '🔥';
+    content: 'ðŸ”¥';
 }
 
 .admonition > p {
@@ -770,19 +770,31 @@ table > caption {
     animation: fadeInUp 0.6s ease-out;
 }
 
+/* Clean, bold signature styling â€” no blockquote/quoted look */
 dt.sig {
     text-transform: none !important;
-    background: linear-gradient(135deg, rgba(224, 64, 0, 0.08), rgba(224, 64, 0, 0.04)) !important;
-    border-radius: var(--border-radius) !important;
-    padding: 4px 10px;
-    width: fit-content;
-    border-left: 2px solid var(--color-brand-content) !important;
-    transition: all var(--transition-fast);
+    background: none !important;
+    border: none !important;
+    border-left: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0.5rem 0 0.25rem 0 !important;
+    width: auto !important;
+    font-weight: 700 !important;
+    transition: none !important;
+    box-shadow: none !important;
 }
 
 dt.sig:hover {
-    background: linear-gradient(135deg, rgba(224, 64, 0, 0.15), rgba(224, 64, 0, 0.08)) !important;
-    transform: translateX(4px);
+    background: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Hide the leading "class " / "exception " prefix Sphinx adds to class signatures */
+dt.sig > em.property:first-child,
+dt.sig > .property:first-child {
+    display: none !important;
 }
 
 dl.field-list > dt {
@@ -820,27 +832,28 @@ dl.field-list > dd > ul > li {
 }
 
 .sig-prename {
-    color: var(--color-foreground-muted);
-    font-weight: 400;
-    font-size: 0.95em;
+    color: var(--color-foreground-primary);
+    font-weight: 700;
+    font-size: 1em;
 }
 
 .sig-name {
     color: var(--color-foreground-primary);
     font-weight: 700;
-    font-size: 1.05em;
+    font-size: 1em;
 }
 
-em.property {
+dt.sig em.property,
+dt.sig .property {
     font-style: normal;
-    font-weight: 400;
-    color: var(--color-foreground-muted);
-    font-size: 0.9em;
+    font-weight: 700;
+    color: var(--color-foreground-primary);
+    font-size: 1em;
 }
 
 .sig-paren {
-    color: var(--color-foreground-muted);
-    font-weight: 400;
+    color: var(--color-foreground-primary);
+    font-weight: 700;
 }
 
 .banner {
@@ -1209,16 +1222,16 @@ strong {
 }
 
 .sidebar-tree .current > .reference::before {
-    content: "➤ ";
+    content: "âž¤ ";
     animation: pulse 2s infinite;
 }
 
 .toc-tree .reference::before {
-    content: "• ";
+    content: "â€¢ ";
 }
 
 .toc-tree li.scroll-current > .reference:before {
-    content: "➤ ";
+    content: "âž¤ ";
     animation: pulse 2s infinite;
 }
 
@@ -1445,7 +1458,7 @@ body[role="document"] .ire-search-hero,
     line-height: 1.55;
     margin: .35rem 0 0 0;
 }
-#search-results > li q { quotes: "“" "”"; font-style: italic; }
+#search-results > li q { quotes: "â€œ" "â€"; font-style: italic; }
 #search-results .highlighted,
 #search-results > li strong {
     background: linear-gradient(120deg, rgba(255,221,87,0.55), rgba(255,221,87,0.25));
