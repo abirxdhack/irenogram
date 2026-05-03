@@ -1,4 +1,3 @@
-
 import typing
 from datetime import datetime
 from enum import Enum
@@ -6,13 +5,13 @@ from json import dumps
 
 import pyrogram
 
+
 class Object:
     def __init__(self, client: "pyrogram.Client" = None):
         self._client = client
 
     def bind(self, client: "pyrogram.Client"):
         """Bind a Client instance to this and to all nested Pyrogram objects.
-
 
         Parameters:
             client (:obj:`~pyrogram.types.Client`):
@@ -29,14 +28,6 @@ class Object:
 
     @staticmethod
     def default(obj: "Object"):
-        """Serialize an object for JSON encoding.
-
-        Parameters:
-            obj: The object to serialize.
-
-        Returns:
-            A JSON-serializable representation of the object.
-        """
         if isinstance(obj, bytes):
             return repr(obj)
 
