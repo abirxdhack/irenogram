@@ -1,9 +1,9 @@
-
 from io import BytesIO
 from struct import unpack, pack
 from typing import cast, Any
 
 from ..tl_object import TLObject
+
 
 class Double(bytes, TLObject):
     @classmethod
