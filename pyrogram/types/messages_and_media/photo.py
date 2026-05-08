@@ -37,6 +37,9 @@ class Photo(Object):
 
         thumbs (List of :obj:`~pyrogram.types.Thumbnail`, *optional*):
             Available thumbnails of this photo.
+
+        is_live_photo (``bool``, *optional*):
+            True, if the photo is a live photo (an image enhanced with a short built-in motion video).
     """
 
     def __init__(
@@ -50,7 +53,8 @@ class Photo(Object):
         file_size: int,
         date: datetime,
         ttl_seconds: int = None,
-        thumbs: List["types.Thumbnail"] = None
+        thumbs: List["types.Thumbnail"] = None,
+        is_live_photo: bool = None
     ):
         super().__init__(client)
 
@@ -62,9 +66,10 @@ class Photo(Object):
         self.date = date
         self.ttl_seconds = ttl_seconds
         self.thumbs = thumbs
+        self.is_live_photo = is_live_photo
 
     @staticmethod
-    def _parse(client, photo: "raw.types.Photo", ttl_seconds: int = None) -> "Photo":
+    def _parse(client, photo: "raw.types.Photo", ttl_seconds: int = None, is_live_photo: bool = None) -> "Photo":
         if isinstance(photo, raw.types.Photo):
             photos: List[raw.types.PhotoSize] = []
 
@@ -109,5 +114,6 @@ class Photo(Object):
                 date=utils.timestamp_to_datetime(photo.date),
                 ttl_seconds=ttl_seconds,
                 thumbs=types.Thumbnail._parse(client, photo),
+                is_live_photo=is_live_photo,
                 client=client
             )
