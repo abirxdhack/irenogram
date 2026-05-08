@@ -604,8 +604,9 @@ def start(format: bool = False):
         f.write("\n}\n")
 
 if "__main__" == __name__:
-    HOME_PATH = Path(".")
-    DESTINATION_PATH = Path("../../pyrogram/raw")
-    NOTICE_PATH = Path("../../NOTICE")
+    _here = Path(__file__).resolve().parent
+    HOME_PATH = _here
+    DESTINATION_PATH = _here.parent.parent / "pyrogram/raw"
+    NOTICE_PATH = _here.parent.parent / "NOTICE"
 
     start(format=False)
