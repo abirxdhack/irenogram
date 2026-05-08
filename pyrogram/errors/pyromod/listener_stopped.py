@@ -1,0 +1,3 @@
+
+class ListenerStopped(Exception):
+    pass

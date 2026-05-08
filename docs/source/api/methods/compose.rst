@@ -1,0 +1,5 @@
+compose()
+=========
+
+.. autofunction:: pyrogram.compose
+

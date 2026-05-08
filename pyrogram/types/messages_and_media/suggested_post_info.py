@@ -1,0 +1,56 @@
+
+from datetime import datetime
+from typing import Optional
+
+from pyrogram import raw, types, utils, enums
+
+from ..object import Object
+
+
+class SuggestedPostInfo(Object):
+    """Contains information about a suggested post.
+
+    Parameters:
+        price (:obj:`~pyrogram.types.SuggestedPostPrice`, *optional*):
+            Proposed price of the post.
+            If the field is omitted, then the post is unpaid.
+
+        send_date (:py:obj:`~datetime.datetime`, *optional*):
+            Proposed send date of the post.
+            If the field is omitted, then the post can be published at any time
+            within 30 days at the sole discretion of the user or administrator who approves it.
+
+        state (:obj:`~pyrogram.enums.SuggestedPostState`, *optional*):
+            State of the suggested post.
+    """
+    def __init__(
+        self, *,
+        price: Optional["types.SuggestedPostPrice"] = None,
+        send_date: Optional[datetime] = None,
+        state: Optional["enums.SuggestedPostState"] = None
+    ):
+        super().__init__()
+
+        self.price = price
+        self.send_date = send_date
+        self.state = state
+
+    @staticmethod
+    def _parse(suggested_post: "raw.types.SuggestedPost") -> Optional["SuggestedPostInfo"]:
+        if not suggested_post:
+            return None
+
+        state = None
+
+        if suggested_post.accepted:
+            state = enums.SuggestedPostState.APPROVED
+        elif suggested_post.rejected:
+            state = enums.SuggestedPostState.DECLINED
+        else:
+            state = enums.SuggestedPostState.PENDING
+
+        return SuggestedPostInfo(
+            price=types.SuggestedPostPrice._parse(suggested_post.price),
+            send_date=utils.timestamp_to_datetime(suggested_post.schedule_date),
+            state=state,
+        )

@@ -1,0 +1,55 @@
+
+from io import BytesIO
+
+from pyrogram.raw.core.primitives import Int, Long, Int128, Int256, Bool, Bytes, String, Double, Vector
+from pyrogram.raw.core import TLObject
+from pyrogram import raw
+from typing import List, Optional, Any
+
+
+class GetPopularAppBots(TLObject):
+    """Telegram API function.
+
+    Details:
+        - Layer: ``224``
+        - ID: ``C2510192``
+
+    Parameters:
+        offset (``str``):
+            N/A
+
+        limit (``int`` ``32-bit``):
+            N/A
+
+    Returns:
+        :obj:`bots.PopularAppBots <pyrogram.raw.base.bots.PopularAppBots>`
+    """
+
+    __slots__: List[str] = ["offset", "limit"]
+
+    ID = 0xc2510192
+    QUALNAME = "functions.bots.GetPopularAppBots"
+
+    def __init__(self, *, offset: str, limit: int) -> None:
+        self.offset = offset
+        self.limit = limit
+
+    @staticmethod
+    def read(b: BytesIO, *args: Any) -> "GetPopularAppBots":
+        
+        offset = String.read(b)
+        
+        limit = Int.read(b)
+        
+        return GetPopularAppBots(offset=offset, limit=limit)
+
+    def write(self, *args) -> bytes:
+        b = BytesIO()
+        b.write(Int(self.ID, False))
+
+        
+        b.write(String(self.offset))
+        
+        b.write(Int(self.limit))
+        
+        return b.getvalue()

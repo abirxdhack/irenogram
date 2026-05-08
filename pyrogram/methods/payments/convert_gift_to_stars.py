@@ -1,0 +1,43 @@
+
+import pyrogram
+from pyrogram import raw, utils
+
+
+class ConvertGiftToStars:
+    async def convert_gift_to_stars(
+        self: "pyrogram.Client",
+        owned_gift_id: str,
+        business_connection_id: str = None
+    ) -> bool:
+        """Convert a given regular gift to Telegram Stars.
+
+        .. note::
+
+            Requires the `can_convert_gifts_to_stars` business bot right.
+
+        .. include:: /_includes/usable-by/users-bots.rst
+
+        Parameters:
+            owned_gift_id (``str``):
+                Unique identifier of the regular gift that should be converted to Telegram Stars.
+
+            business_connection_id (``str``, *optional*):
+                Unique identifier of the business connection.
+                For bots only.
+
+        Returns:
+            ``bool``: On success, True is returned.
+
+        Example:
+            .. code-block:: python
+
+                await app.convert_gift_to_stars(message_id=123)
+        """
+        r = await self.invoke(
+            raw.functions.payments.ConvertStarGift(
+                stargift=await utils.get_input_stargift(self, owned_gift_id)
+            ),
+            business_connection_id=business_connection_id
+        )
+
+        return r

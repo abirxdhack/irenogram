@@ -1,0 +1,51 @@
+
+from typing import List, Union
+
+import pyrogram
+from pyrogram import raw, types, utils
+
+
+class RemoveCollectionGifts:
+    async def remove_collection_gifts(
+        self: "pyrogram.Client",
+        owner_id: Union[int, str],
+        collection_id: int,
+        gift_ids: List[str]
+    ) -> "types.GiftCollection":
+        """Removes gifts from a collection.
+
+        .. include:: /_includes/usable-by/users.rst
+
+        Parameters:
+            owner_id (``int`` | ``str``):
+                Unique identifier (int) or username (str) of the target chat.
+                For your personal cloud (Saved Messages) you can simply use "me" or "self".
+
+            collection_id (``int``):
+                Identifier of the gift collection.
+
+            gift_ids (List of ``str``):
+                Identifier of the gifts to remove from the collection.
+
+        Returns:
+            :obj:`~pyrogram.types.GiftCollection`: On success, a updated collection is returned.
+
+        Example:
+            .. code-block:: python
+
+                await app.remove_collection_gifts("me", 123, ["https://t.me/nft/NekoHelmet-9215"])
+        """
+        stargifts = []
+
+        for gift in gift_ids:
+            stargifts.append(await utils.get_input_stargift(self, gift))
+
+        r = await self.invoke(
+            raw.functions.payments.UpdateStarGiftCollection(
+                peer=await self.resolve_peer(owner_id),
+                collection_id=collection_id,
+                delete_stargift=stargifts
+            )
+        )
+
+        return await types.GiftCollection._parse(self, r)

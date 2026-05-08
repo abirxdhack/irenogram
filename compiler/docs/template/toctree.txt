@@ -1,0 +1,8 @@
+{title}
+{title_markup}
+
+.. currentmodule:: {module}
+
+.. toctree::
+
+    {entities}
