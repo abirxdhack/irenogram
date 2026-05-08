@@ -36,6 +36,7 @@ class SendPhoto:
         message_effect_id: int = None,
         view_once: bool = None,
         invert_media: bool = None,
+        live_photo: bool = None,
         reply_markup: Union[
             "types.InlineKeyboardMarkup",
             "types.ReplyKeyboardMarkup",
@@ -136,6 +137,10 @@ class SendPhoto:
             invert_media (``bool``, *optional*):
                 Inverts the position of the photo and caption.
 
+            live_photo (``bool``, *optional*):
+                Pass True to send the photo as a live photo (an image enhanced with a short built-in motion video).
+                Only applicable when uploading a new photo or reusing a photo by file_id.
+
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardRemove` | :obj:`~pyrogram.types.ForceReply`, *optional*):
                 Additional interface options. An object for an inline keyboard, custom reply keyboard,
                 instructions to remove reply keyboard or to force a reply from the user.
@@ -204,6 +209,7 @@ class SendPhoto:
                         file=file,
                         ttl_seconds=(1 << 31) - 1 if view_once else ttl_seconds,
                         spoiler=has_spoiler,
+                        live_photo=live_photo,
                     )
                 elif re.match("^https?://", photo):
                     media = raw.types.InputMediaPhotoExternal(
@@ -214,12 +220,15 @@ class SendPhoto:
                 else:
                     media = utils.get_input_media_from_file_id(photo, FileType.PHOTO, ttl_seconds=(1 << 31) - 1 if view_once else ttl_seconds)
                     media.spoiler = has_spoiler
+                    if live_photo and hasattr(media, "live_photo"):
+                        media.live_photo = True
             else:
                 file = await self.save_file(photo, progress=progress, progress_args=progress_args)
                 media = raw.types.InputMediaUploadedPhoto(
                     file=file,
                     ttl_seconds=(1 << 31) - 1 if view_once else ttl_seconds,
-                    spoiler=has_spoiler
+                    spoiler=has_spoiler,
+                    live_photo=live_photo,
                 )
 
             while True:
