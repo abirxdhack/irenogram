@@ -14,6 +14,7 @@ from .edited_message_handler import EditedMessageHandler
 from .edited_bot_business_message_handler import EditedBotBusinessMessageHandler
 from .error_handler import ErrorHandler
 from .inline_query_handler import InlineQueryHandler
+from .guest_query_handler import GuestQueryHandler
 from .managed_bot_handler import ManagedBotHandler
 from .message_handler import MessageHandler
 from .poll_handler import PollHandler
@@ -54,6 +55,7 @@ __all__ = [
     "EditedBotBusinessMessageHandler",
     "ErrorHandler",
     "InlineQueryHandler",
+    "GuestQueryHandler",
     "ManagedBotHandler",
     "MessageHandler",
     "PollHandler",
