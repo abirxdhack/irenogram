@@ -1,4 +1,4 @@
-
+from .bot_access_settings import BotAccessSettings
 from .bot_allowed import BotAllowed
 from .bot_app import BotApp
 from .bot_business_connection import BotBusinessConnection
@@ -38,6 +38,7 @@ from .requested_chat import RequestedChat
 from .requested_chats import RequestedChats
 from .requested_user import RequestedUser
 from .sent_web_app_message import SentWebAppMessage
+from .sent_guest_message import SentGuestMessage
 from .prepared_inline_message import PreparedInlineMessage
 from .switch_inline_query_chosen_chat import SwitchInlineQueryChosenChat
 from .web_app_info import WebAppInfo
@@ -61,6 +62,7 @@ from .shipping_query import ShippingQuery
 from .users_shared import UsersShared
 
 __all__ = [
+    "BotAccessSettings",
     "BotAllowed",
     "BotApp",
     "BotBusinessConnection",
@@ -101,6 +103,7 @@ __all__ = [
     "MenuButtonWebApp",
     "MenuButtonDefault",
     "SentWebAppMessage",
+    "SentGuestMessage",
     "PreparedInlineMessage",
     "SwitchInlineQueryChosenChat",
     "ChatBoostUpdated",
