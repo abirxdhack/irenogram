@@ -19,6 +19,7 @@ from pyrogram.handlers import (
     EditedBusinessMessageHandler,
     EditedMessageHandler,
     ErrorHandler,
+    GuestQueryHandler,
     Handler,
     InlineQueryHandler,
     ManagedBotUpdatedHandler,
@@ -40,6 +41,7 @@ from pyrogram.raw.types import (
     UpdateBotChatInviteRequester,
     UpdateBotDeleteBusinessMessage,
     UpdateBotEditBusinessMessage,
+    UpdateBotGuestChatQuery,
     UpdateBotInlineQuery,
     UpdateBotInlineSend,
     UpdateBotMessageReaction,
@@ -92,6 +94,7 @@ class Dispatcher:
     EDITED_BUSINESS_MESSAGE_UPDATES = (UpdateBotEditBusinessMessage,)
     DELETED_BUSINESS_MESSAGES_UPDATES = (UpdateBotDeleteBusinessMessage,)
     MANAGED_BOT_UPDATES = (UpdateManagedBot,)
+    GUEST_QUERY_UPDATES = (UpdateBotGuestChatQuery,)
 
     def __init__(self, client: "pyrogram.Client"):
         self.client = client
@@ -275,6 +278,13 @@ class Dispatcher:
                 ManagedBotUpdatedHandler
             )
 
+        async def guest_query_parser(update, users, chats):
+            """Parse guest chat query updates."""
+            return (
+                await pyrogram.types.GuestQuery._parse(self.client, update, users, chats),
+                GuestQueryHandler
+            )
+
         self.update_parsers = {
             Dispatcher.NEW_MESSAGE_UPDATES: message_parser,
             Dispatcher.EDIT_MESSAGE_UPDATES: edited_message_parser,
@@ -298,6 +308,7 @@ class Dispatcher:
             Dispatcher.EDITED_BUSINESS_MESSAGE_UPDATES: edited_business_message_parser,
             Dispatcher.DELETED_BUSINESS_MESSAGES_UPDATES: deleted_business_messages_parser,
             Dispatcher.MANAGED_BOT_UPDATES: managed_bot_parser,
+            Dispatcher.GUEST_QUERY_UPDATES: guest_query_parser,
         }
 
         self.update_parsers = {key: value for key_tuple, value in self.update_parsers.items() for key in key_tuple}
