@@ -12,8 +12,9 @@ NOTICE_PATH = "NOTICE"
 
 SECTION_RE = re.compile(r"---(\w+)---")
 LAYER_RE = re.compile(r"//\sLAYER\s(\d+)")
-COMBINATOR_RE = re.compile(r"^([\w.]+)#([0-9a-f]+)\s(?:.*)=\s([\w<>.]+);$", re.MULTILINE)
+COMBINATOR_RE = re.compile(r"^([\w.]+)#([0-9a-f]+)\s(?:.*)=\s([\w<>.]+);", re.MULTILINE)
 ARGS_RE = re.compile(r"[^{](\w+):([\w?!.<>#]+)")
+FLAGS_RE = re.compile(r"flags(\d?)\.(d+)\?")
 FLAGS_RE = re.compile(r"flags(\d?)\.(\d+)\?")
 FLAGS_RE_2 = re.compile(r"flags(\d?)\.(\d+)\?([\w<>.]+)")
 FLAGS_RE_3 = re.compile(r"flags(\d?):#")
@@ -26,6 +27,22 @@ WARNING = """
 
 open = partial(open, encoding="utf-8")
 
+types_to_constructors = {}
+types_to_functions = {}
+constructors_to_functions = {}
+namespaces_to_types = {}
+namespaces_to_constructors = {}
+namespaces_to_functions = {}
+
+try:
+    with open("docs.json") as f:
+        docs = json.load(f)
+except FileNotFoundError:
+    docs = {
+        "type": {},
+        "constructor": {},
+        "method": {}
+    }
 
 class Combinator(NamedTuple):
     section: str
@@ -39,15 +56,13 @@ class Combinator(NamedTuple):
     typespace: str
     type: str
 
-
 def snake(s: str):
+
     s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s).lower()
 
-
 def camel(s: str):
     return "".join([i[0].upper() + i[1:] for i in s.split("_")])
-
 
 def get_type_hint(type: str) -> str:
     is_flag = FLAGS_RE.match(type)
@@ -87,9 +102,8 @@ def get_type_hint(type: str) -> str:
 
         return f'{type}{" = None" if is_flag else ""}'
 
-
 def sort_args(args):
-    """Put flags at the end."""
+    """Put flags at the end"""
     args = args.copy()
     flags = [i for i in args if FLAGS_RE.match(i[1])]
 
@@ -102,9 +116,8 @@ def sort_args(args):
 
     return args + flags
 
-
 def remove_whitespaces(source: str) -> str:
-    """Remove whitespaces from blank lines."""
+    """Remove whitespaces from blank lines"""
     lines = source.split("\n")
 
     for i, _ in enumerate(lines):
@@ -112,7 +125,6 @@ def remove_whitespaces(source: str) -> str:
             lines[i] = ""
 
     return "\n".join(lines)
-
 
 def get_docstring_arg_type(t: str):
     if t in CORE_TYPES:
@@ -138,9 +150,7 @@ def get_docstring_arg_type(t: str):
     else:
         return f":obj:`{t} <pyrogram.raw.base.{t}>`"
 
-
-def get_references(t: str, kind: str, types_to_constructors: dict, types_to_functions: dict, constructors_to_functions: dict):
-    """Return cross-reference list and count for a type or constructor."""
+def get_references(t: str, kind: str):
     if kind == "constructors":
         t = constructors_to_functions.get(t)
     elif kind == "types":
@@ -153,37 +163,18 @@ def get_references(t: str, kind: str, types_to_constructors: dict, types_to_func
 
     return None, 0
 
-
 def start(format: bool = False):
-    """Compile TL schema files into Python raw API modules."""
-    types_to_constructors = {}
-    types_to_functions = {}
-    constructors_to_functions = {}
-    namespaces_to_types = {}
-    namespaces_to_constructors = {}
-    namespaces_to_functions = {}
-
-    try:
-        with open("docs.json") as f:
-            docs = json.load(f)
-    except FileNotFoundError:
-        docs = {
-            "type": {},
-            "constructor": {},
-            "method": {}
-        }
-
     shutil.rmtree(DESTINATION_PATH / "types", ignore_errors=True)
     shutil.rmtree(DESTINATION_PATH / "functions", ignore_errors=True)
     shutil.rmtree(DESTINATION_PATH / "base", ignore_errors=True)
 
-    with open(HOME_PATH / "source/auth_key.tl") as f1, \
-            open(HOME_PATH / "source/sys_msgs.tl") as f2, \
-            open(HOME_PATH / "source/main_api.tl") as f3:
+    with open(HOME_PATH / "source/auth_key.tl") as f1,\
+        open(HOME_PATH / "source/sys_msgs.tl") as f2,\
+        open(HOME_PATH / "source/main_api.tl") as f3:
         schema = (f1.read() + f2.read() + f3.read()).splitlines()
 
-    with open(HOME_PATH / "template/type.txt") as f1, \
-            open(HOME_PATH / "template/combinator.txt") as f2:
+    with open(HOME_PATH / "template/type.txt") as f1,\
+        open(HOME_PATH / "template/combinator.txt") as f2:
         type_tmpl = f1.read()
         combinator_tmpl = f2.read()
 
@@ -200,6 +191,7 @@ def start(format: bool = False):
     combinators = []
 
     for line in schema:
+
         section_match = SECTION_RE.match(line)
         if section_match:
             section = section_match.group(1)
@@ -212,6 +204,7 @@ def start(format: bool = False):
 
         combinator_match = COMBINATOR_RE.match(line)
         if combinator_match:
+
             qualname, id, qualtype = combinator_match.groups()
 
             namespace, name = qualname.split(".") if "." in qualname else ("", qualname)
@@ -308,7 +301,7 @@ def start(format: bool = False):
                      f"            :nosignatures:\n\n" \
                      f"            {items}"
 
-        references, ref_count = get_references(qualtype, "types", types_to_constructors, types_to_functions, constructors_to_functions)
+        references, ref_count = get_references(qualtype, "types")
 
         if references:
             docstring += f"\n\n    Functions:\n        This object can be returned by " \
@@ -343,7 +336,7 @@ def start(format: bool = False):
         )
 
         fields = "\n        ".join(
-            [f"self.{i[0]} = {i[0]}"
+            [f"self.{i[0]} = {i[0]}  # {i[1]}"
              for i in sorted_args]
         ) if sorted_args else "pass"
 
@@ -396,13 +389,13 @@ def start(format: bool = False):
                 docstring += "Telegram API function."
 
         docstring += f"\n\n    Details:\n        - Layer: ``{layer}``\n        - ID: ``{c.id[2:].upper()}``\n\n"
-        docstring += "    Parameters:\n        " + \
+        docstring += "    Parameters:\n        " +\
                      ("\n        ".join(docstring_args) if docstring_args else "No parameters required.\n")
 
         if c.section == "functions":
             docstring += "\n    Returns:\n        " + get_docstring_arg_type(c.qualtype)
         else:
-            references, count = get_references(c.qualname, "constructors", types_to_constructors, types_to_functions, constructors_to_functions)
+            references, count = get_references(c.qualname, "constructors")
 
             if references:
                 docstring += "\n    Functions:\n        This object can be returned by " \
@@ -412,7 +405,7 @@ def start(format: bool = False):
                              "            :nosignatures:\n\n" \
                              "            " + references
 
-        write_types = read_types = ""
+        write_types = read_types = "" if c.has_flags else "# No flags\n        "
 
         for arg_name, arg_type in c.args:
             flag = FLAGS_RE_2.match(arg_type)
@@ -488,7 +481,7 @@ def start(format: bool = False):
                     sub_type = arg_type.split("<")[1][:-1]
 
                     write_types += "\n        "
-                    write_types += "b.write(Vector(self.{}{}))\\n        ".format(
+                    write_types += "b.write(Vector(self.{}{}))\n        ".format(
                         arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else ""
                     )
 
@@ -609,7 +602,6 @@ def start(format: bool = False):
         f.write('\n    0x5bb8e511: "pyrogram.raw.core.Message",')
 
         f.write("\n}\n")
-
 
 if "__main__" == __name__:
     _here = Path(__file__).resolve().parent
