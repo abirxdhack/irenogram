@@ -39,6 +39,7 @@ from .requested_chats import RequestedChats
 from .requested_user import RequestedUser
 from .sent_web_app_message import SentWebAppMessage
 from .sent_guest_message import SentGuestMessage
+from .guest_query import GuestQuery
 from .prepared_inline_message import PreparedInlineMessage
 from .switch_inline_query_chosen_chat import SwitchInlineQueryChosenChat
 from .web_app_info import WebAppInfo
@@ -104,6 +105,7 @@ __all__ = [
     "MenuButtonDefault",
     "SentWebAppMessage",
     "SentGuestMessage",
+    "GuestQuery",
     "PreparedInlineMessage",
     "SwitchInlineQueryChosenChat",
     "ChatBoostUpdated",
