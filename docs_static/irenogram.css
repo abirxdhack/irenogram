@@ -1100,7 +1100,7 @@ dt.sig .property {
 .mobile-header {
     font-family: TaraType, monospace;
     font-weight: bold;
-    font-size: 38px;
+    font-size: 26px;
     letter-spacing: 0.0425em;
     animation: fadeInUp 0.6s ease-out;
 }
