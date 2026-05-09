@@ -12,6 +12,7 @@ from .on_edited_message import OnEditedMessage
 from .on_edited_bot_business_message import OnEditedBotBusinessMessage
 from .on_error import OnError
 from .on_inline_query import OnInlineQuery
+from .on_guest_query import OnGuestQuery
 from .on_managed_bot import OnManagedBot
 from .on_message import OnMessage
 from .on_poll import OnPoll
@@ -58,6 +59,7 @@ class Decorators(
     OnDisconnect,
     OnUserStatus,
     OnInlineQuery,
+    OnGuestQuery,
     OnManagedBot,
     OnPoll,
     OnChosenInlineResult,
