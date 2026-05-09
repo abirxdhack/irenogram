@@ -54,6 +54,7 @@ from .send_message import SendMessage
 from .send_photo import SendPhoto
 from .send_poll import SendPoll
 from .send_reaction import SendReaction
+from .remove_message_reaction import RemoveMessageReaction
 from .send_sticker import SendSticker
 from .send_todo import SendTodo
 from .send_venue import SendVenue
@@ -184,6 +185,7 @@ class Messages(
     SearchGlobalHashtagMessagesCount,
     GetDiscussionMessage,
     SendReaction,
+    RemoveMessageReaction,
     GetDiscussionReplies,
     GetDiscussionRepliesCount,
     StreamMedia,
