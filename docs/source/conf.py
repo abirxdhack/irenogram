@@ -4,6 +4,7 @@ import sys
 import types as _types
 
 sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "_ext")))
 sys.path.insert(0, os.path.abspath("./_ext"))
 
 try:
@@ -19,7 +20,6 @@ with open(os.path.abspath("../../pyrogram/__init__.py"), encoding="utf-8") as _f
         _f.read(), re.M
     ).group(1)
 
-
 def _detect_layer():
     tl_path = os.path.abspath("../../compiler/api/source/main_api.tl")
     try:
@@ -29,7 +29,6 @@ def _detect_layer():
         return "?"
     matches = re.findall(r"//\s*LAYER\s+(\d+)", text, re.I)
     return matches[-1] if matches else "?"
-
 
 __layer__ = _detect_layer()
 
@@ -52,6 +51,7 @@ intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 master_doc = "index"
 source_suffix = ".rst"
+
 autodoc_member_order = "bysource"
 autosummary_generate = True
 autodoc_typehints = "none"
@@ -79,7 +79,6 @@ autodoc_default_options = {
 
 autodoc_inherit_docstrings = True
 autodoc_class_signature = "separated"
-
 autodoc_mock_imports = [
     "cryptg",
     "tgcrypto",
@@ -91,11 +90,14 @@ autodoc_mock_imports = [
 
 templates_path = ["../resources/templates"]
 html_copy_source = False
+
 napoleon_use_rtype = False
 napoleon_use_param = False
+
 pygments_style = "sphinx"
 pygments_dark_style = "monokai"
 highlight_language = "python3"
+
 copybutton_prompt_text = "$ "
 
 suppress_warnings = [
@@ -182,54 +184,43 @@ html_baseurl = os.environ.get(
     "READTHEDOCS_CANONICAL_URL", "https://abirxdhack.github.io/irenogram/"
 )
 
-
 def _snek(s):
     s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s).lower().replace("_", "-")
 
-
 def _target_to_url(target):
     base = html_baseurl.rstrip("/")
-
     m = re.match(r"^pyrogram\.Client\.(\w+)$", target)
     if m:
         return "{}/api/methods/{}/".format(base, m.group(1))
-
     m = re.match(r"^pyrogram\.types\.(\w+)$", target)
     if m:
         return "{}/api/types/{}/".format(base, m.group(1))
-
     m = re.match(r"^pyrogram\.enums\.(\w+)$", target)
     if m:
         return "{}/api/enums/{}/".format(base, m.group(1))
-
     m = re.match(r"^pyrogram\.filters\.(\w+)$", target)
     if m:
         return "{}/api/filters/".format(base)
-
     m = re.match(r"^pyrogram\.raw\.base\.(?:(\w+)\.)?(\w+)$", target)
     if m:
         ns, cls = m.group(1), m.group(2)
         if ns:
             return "{}/telegram/base/{}/{}/".format(base, _snek(ns), _snek(cls))
         return "{}/telegram/base/{}/".format(base, _snek(cls))
-
     m = re.match(r"^pyrogram\.raw\.types\.(?:(\w+)\.)?(\w+)$", target)
     if m:
         ns, cls = m.group(1), m.group(2)
         if ns:
             return "{}/telegram/types/{}/{}/".format(base, _snek(ns), _snek(cls))
         return "{}/telegram/types/{}/".format(base, _snek(cls))
-
     m = re.match(r"^pyrogram\.raw\.functions\.(?:(\w+)\.)?(\w+)$", target)
     if m:
         ns, cls = m.group(1), m.group(2)
         if ns:
             return "{}/telegram/functions/{}/{}/".format(base, _snek(ns), _snek(cls))
         return "{}/telegram/functions/{}/".format(base, _snek(cls))
-
     return None
-
 
 def on_missing_reference(app, env, node, contnode):
     target = node.get("reftarget", "")
@@ -243,7 +234,6 @@ def on_missing_reference(app, env, node, contnode):
     ref += contnode
     return ref
 
-
 _SKIP_DUNDERS = {
     "__class__", "__delattr__", "__dict__", "__dir__", "__doc__",
     "__eq__", "__format__", "__ge__", "__getattribute__", "__getstate__",
@@ -253,8 +243,10 @@ _SKIP_DUNDERS = {
     "__subclasshook__", "__weakref__", "__annotations__", "__abstractmethods__",
     "__slots__",
 }
+
 _SKIP_INTERNALS = {"read", "write", "default"}
 _SKIP_CLASS_ATTRS = {"ID", "QUALNAME"}
+
 _CLIENT_CONSTANTS = {
     "APP_VERSION", "DEVICE_MODEL", "SYSTEM_VERSION", "LANG_PACK", "LANG_CODE",
     "SYSTEM_LANG_CODE", "PARENT_DIR", "INVITE_LINK_RE", "UPGRADED_GIFT_RE",
@@ -262,13 +254,13 @@ _CLIENT_CONSTANTS = {
     "UPDATES_WATCHDOG_INTERVAL", "MAX_CONCURRENT_TRANSMISSIONS",
     "MAX_MESSAGE_CACHE_SIZE", "MAX_TOPIC_CACHE_SIZE", "mimetypes",
 }
+
 _CLIENT_INTERNALS = {
     "loop", "server_time", "updates_watchdog", "authorize", "authorize_qr",
     "fetch_peers", "handle_updates", "load_session", "load_plugins",
     "handle_download", "get_file", "get_dc_option", "guess_mime_type",
     "guess_extension", "get_session", "set_dc", "set_parse_mode",
 }
-
 
 def skip_member(app, what, name, obj, skip, options):
     if name in _SKIP_DUNDERS:
@@ -288,7 +280,6 @@ def skip_member(app, what, name, obj, skip, options):
     if skip:
         return True
     return False
-
 
 def setup(app):
     app.connect("missing-reference", on_missing_reference)
