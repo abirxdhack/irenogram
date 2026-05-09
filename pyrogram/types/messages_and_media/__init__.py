@@ -77,6 +77,7 @@ from .boosts_status import BoostsStatus
 from .business_message import BusinessMessage
 from .chat_background import ChatBackground
 from .chat_boost import ChatBoost
+from .chat_boosts_list import ChatBoostsList
 from .chat_owner_changed import ChatOwnerChanged
 from .chat_owner_left import ChatOwnerLeft
 from .chat_has_protected_content_toggled import ChatHasProtectedContentToggled
@@ -238,6 +239,7 @@ __all__ = [
     "BusinessMessage",
     "ChatBackground",
     "ChatBoost",
+    "ChatBoostsList",
     "ChatOwnerChanged",
     "ChatOwnerLeft",
     "ChatHasProtectedContentToggled",
