@@ -377,6 +377,12 @@ class User(Object, Update):
         supports_guest_queries (``bool``, *optional*):
             True, if the bot can be queried by username from any non-secret chat.
 
+        can_be_contacted_by_bot (``bool``, *optional*):
+            True, if another bot can initiate contact with this bot.
+
+        pinned_profile_channel_id (``int``, *optional*):
+            Identifier of a channel pinned to the user profile, if any.
+
         raw (:obj:`~pyrogram.raw.base.User` | :obj:`~pyrogram.raw.base.UserStatus`, *optional*):
             The raw user or user status object, as received from the Telegram API.
 
@@ -487,6 +493,8 @@ class User(Object, Update):
         accepted_gift_types: Optional["types.AcceptedGiftTypes"] = None,
         note: Optional["types.FormattedText"] = None,
         supports_guest_queries: Optional[bool] = None,
+        can_be_contacted_by_bot: Optional[bool] = None,
+        pinned_profile_channel_id: Optional[int] = None,
         raw: Optional[Union["raw.base.User", "raw.base.UserStatus"]] = None
     ):
         super().__init__(client)
@@ -584,6 +592,8 @@ class User(Object, Update):
         self.accepted_gift_types = accepted_gift_types
         self.note = note
         self.supports_guest_queries = supports_guest_queries
+        self.can_be_contacted_by_bot = can_be_contacted_by_bot
+        self.pinned_profile_channel_id = pinned_profile_channel_id
         self.raw = raw
 
     @property
@@ -765,6 +775,7 @@ class User(Object, Update):
         parsed_user.pending_rating_date = utils.timestamp_to_datetime(user.stars_my_pending_rating_date)
         parsed_user.accepted_gift_types = types.AcceptedGiftTypes._parse(user.disallowed_gifts)
         parsed_user.note = types.FormattedText._parse(client, user.note)
+        parsed_user.pinned_profile_channel_id = getattr(user, "personal_channel_id", None)
 
         return parsed_user
 
