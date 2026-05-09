@@ -1,4 +1,5 @@
 from .answer_callback_query import AnswerCallbackQuery
+from .answer_guest_query import AnswerGuestQuery
 from .answer_inline_query import AnswerInlineQuery
 from .answer_web_app_query import AnswerWebAppQuery
 from .create_managed_bot import CreateManagedBot
@@ -62,6 +63,7 @@ class Bots(
     AnswerShippingQuery,
     AnswerPreCheckoutQuery,
     AnswerCallbackQuery,
+    AnswerGuestQuery,
     AnswerInlineQuery,
     GetInlineBotResults,
     RequestCallbackAnswer,
