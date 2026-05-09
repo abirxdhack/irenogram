@@ -4,6 +4,7 @@ import sys
 import types as _types
 
 sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath("./_ext"))
 
 try:
     import uvloop
@@ -18,6 +19,20 @@ with open(os.path.abspath("../../pyrogram/__init__.py"), encoding="utf-8") as _f
         _f.read(), re.M
     ).group(1)
 
+
+def _detect_layer():
+    tl_path = os.path.abspath("../../compiler/api/source/main_api.tl")
+    try:
+        with open(tl_path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return "?"
+    matches = re.findall(r"//\s*LAYER\s+(\d+)", text, re.I)
+    return matches[-1] if matches else "?"
+
+
+__layer__ = _detect_layer()
+
 project = "Irenogram"
 author = "Abir Arafat Chawdhury"
 copyright = "2025, Abir Arafat Chawdhury"
@@ -30,6 +45,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
+    "changelog_gen",
 ]
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
@@ -112,7 +128,7 @@ nitpick_ignore = [
     ("py:obj", "object"),
 ]
 
-html_title = f"Irenogram {version}"
+html_title = f"Irenogram {version} Layer {__layer__}"
 html_theme = "furo"
 html_static_path = [os.path.abspath("../../docs_static")]
 html_css_files = ["irenogram.css"]
