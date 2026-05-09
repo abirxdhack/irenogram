@@ -1,4 +1,3 @@
-
 import json
 import os
 import re
@@ -13,8 +12,9 @@ NOTICE_PATH = "NOTICE"
 
 SECTION_RE = re.compile(r"---(\w+)---")
 LAYER_RE = re.compile(r"//\sLAYER\s(\d+)")
-COMBINATOR_RE = re.compile(r"^([\w.]+)#([0-9a-f]+)\s(?:.*)=\s([\w<>.]+);$", re.MULTILINE)
+COMBINATOR_RE = re.compile(r"^([\w.]+)#([0-9a-f]+)\s(?:.*)=\s([\w<>.]+);", re.MULTILINE)
 ARGS_RE = re.compile(r"[^{](\w+):([\w?!.<>#]+)")
+FLAGS_RE = re.compile(r"flags(\d?)\.(d+)\?")
 FLAGS_RE = re.compile(r"flags(\d?)\.(\d+)\?")
 FLAGS_RE_2 = re.compile(r"flags(\d?)\.(\d+)\?([\w<>.]+)")
 FLAGS_RE_3 = re.compile(r"flags(\d?):#")
@@ -455,7 +455,7 @@ def start(format: bool = False):
 
                     write_types += "\n        "
                     write_types += f"if self.{arg_name} is not None:\n            "
-                    write_types += "b.write(Vector(self.{}{}))\n        ".format(
+                    write_types += "b.write(Vector(self.{}{}))\\n        ".format(
                         arg_name, f", {sub_type.title()}" if sub_type in CORE_TYPES else ""
                     )
 
