@@ -11,6 +11,11 @@ Here you can find the release notes for Irenogram releases.
     - **MINOR** version changes add functionality in a backward-compatible manner.
     - **PATCH** version changes are backward-compatible bug fixes.
 
+.. toctree::
+    :maxdepth: 2
+
+    changelog
+
 Latest Releases
 ---------------
 
