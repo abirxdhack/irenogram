@@ -9,7 +9,7 @@ class TranslateText:
     async def translate_text(
         self: "pyrogram.Client",
         text: Union[str, "types.FormattedText"],
-        to_language_code: str,
+        to_language_code: Optional[str] = None,
         tone: Optional[str] = None,
     ) -> "types.FormattedText":
         """Translate a text to the given language.
@@ -46,8 +46,7 @@ class TranslateText:
 
         r = await self.invoke(
             raw.functions.messages.TranslateText(
-                to_lang=to_language_code,
-                text=[await text.write(self)],
+                to_lang=to_language_code or self.lang_code,
                 tone=tone
             )
         )
