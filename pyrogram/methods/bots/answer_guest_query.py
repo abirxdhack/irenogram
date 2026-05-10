@@ -47,4 +47,4 @@ class AnswerGuestQuery:
             )
         )
 
-        return types.SentGuestMessage._parse(r)
+        return await types.SentGuestMessage._parse(r)
