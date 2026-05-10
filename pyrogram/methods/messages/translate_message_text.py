@@ -10,7 +10,7 @@ class TranslateMessageText:
         self: "pyrogram.Client",
         chat_id: str,
         message_id: int,
-        to_language_code: str,
+        to_language_code: Optional[str] = None,
         tone: Optional[str] = None
     ) -> "types.FormattedText":
         """Extract text or caption of the given message and translates it to the given language.
@@ -49,8 +49,7 @@ class TranslateMessageText:
         """
         r = await self.invoke(
             raw.functions.messages.TranslateText(
-                to_lang=to_language_code,
-                peer=await self.resolve_peer(chat_id),
+                to_lang=to_language_code or self.lang_code,
                 id=[message_id],
                 tone=tone
             )
