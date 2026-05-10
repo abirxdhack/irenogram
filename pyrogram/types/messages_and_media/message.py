@@ -523,6 +523,11 @@ class Message(Object, Update):
             If non-empty, the message belongs to a chat of the corresponding business account that is independent from any potential bot chat which might share the same identifier.
             This update may at times be triggered by unavailable changes to message fields that are either unavailable or not actively used by the current bot.
 
+        guest_query_id (``str``, *optional*):
+            Unique identifier of the guest query that triggered this message.
+            Present only for messages received via guest mode (UpdateBotGuestChatQuery).
+            Use :meth:`~pyrogram.Client.answer_guest_query` with this ID to reply.
+
         reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardRemove` | :obj:`~pyrogram.types.ForceReply`, *optional*):
             Additional interface options. An object for an inline keyboard, custom reply keyboard,
             instructions to remove reply keyboard or to force a reply from the user.
@@ -1406,6 +1411,7 @@ class Message(Object, Update):
         is_scheduled: bool = False,
         replies: int = 1,
         business_connection_id: str = None,
+        guest_query_id: str = None,
         raw_reply_to_message: "raw.base.Message" = None
     ) -> "Message":
         from_id = utils.get_raw_peer_id(message.from_id)
@@ -1686,6 +1692,7 @@ class Message(Object, Update):
             via_bot=types.User._parse(client, users.get(message.via_bot_id)),
             outgoing=message.out,
             business_connection_id=business_connection_id,
+            guest_query_id=str(guest_query_id) if guest_query_id else None,
             reply_markup=reply_markup,
             reactions=reactions,
             from_offline=message.offline,
@@ -1877,6 +1884,7 @@ class Message(Object, Update):
         is_scheduled: bool = False,
         replies: int = 1,
         business_connection_id: Optional[str] = None,
+        guest_query_id: Optional[str] = None,
         raw_reply_to_message: Optional["raw.base.Message"] = None
     ) -> "Message":
         if isinstance(message, raw.types.MessageEmpty):
@@ -1909,6 +1917,7 @@ class Message(Object, Update):
                 is_scheduled=is_scheduled,
                 replies=replies,
                 business_connection_id=business_connection_id,
+                guest_query_id=guest_query_id,
                 raw_reply_to_message=raw_reply_to_message
             )
 
