@@ -82,6 +82,7 @@ autodoc_class_signature = "separated"
 autodoc_mock_imports = [
     "cryptg",
     "tgcrypto",
+    "pyaes",
     "bson",
     "pymongo",
     "qrcode",
