@@ -1,16 +1,12 @@
-
-
 import logging
 from datetime import datetime
 from functools import partial
 from typing import BinaryIO, Callable, Dict, List, Match, Optional, Union
-
 import pyrogram
 from pyrogram import enums, raw, types, utils
 from pyrogram.errors import ChannelForumMissing, ChannelPrivate, ChannelInvalid, MessageIdsEmpty, PeerIdInvalid, ChatAdminRequired
 from pyrogram.parser import Parser
 from pyrogram.parser import utils as parser_utils
-
 from ..object import Object
 from ..update import Update
 import contextlib
@@ -5071,18 +5067,27 @@ class Message(Object, Update):
 
     async def reply_poll(
         self,
-        question: "types.FormattedText",
-        options: List[Union[str, "types.FormattedText"]],
+        question: Union[str, "types.FormattedText"],
+        options: List[Union[str, "types.InputPollOption"]],
+        media: Optional[Union[
+            "types.InputMediaPhoto",
+            "types.InputMediaVideo",
+            "types.InputMediaSticker",
+            "types.Location",
+        ]] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
         type: "enums.PollType" = enums.PollType.REGULAR,
         allows_multiple_answers: Optional[bool] = None,
         allows_revoting: Optional[bool] = None,
+        members_only: Optional[bool] = None,
+        country_codes: Optional[List[str]] = None,
         shuffle_options: Optional[bool] = None,
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
+        correct_option_id: Optional[int] = None,
         explanation: Optional["types.FormattedText"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
@@ -5122,8 +5127,12 @@ class Message(Object, Update):
                 Poll question, 1-255 characters (up to 300 characters for bots).
                 Only custom emoji entities are allowed to be added and only by Premium users.
 
-            options (List of ``str`` | List of :obj:`~pyrogram.types.FormattedText`):
-                List of 2-12 answer options, each 1-100 characters.
+            options (List of ``str`` | List of :obj:`~pyrogram.types.InputPollOption`):
+                List of 1-12 answer options.
+
+            media (:obj:`~pyrogram.types.InputMediaPhoto` | :obj:`~pyrogram.types.InputMediaVideo` | :obj:`~pyrogram.types.InputMediaSticker` | :obj:`~pyrogram.types.Location`, *optional*):
+                Media attached to the poll.
+                Currently supports only photo, video, sticker or location.
 
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
@@ -5136,7 +5145,7 @@ class Message(Object, Update):
                 True, if the poll needs to be anonymous.
                 Defaults to True.
 
-            type (:obj`~pyrogram.enums.PollType`, *optional*):
+            type (:obj:`~pyrogram.enums.PollType`, *optional*):
                 Poll type, :obj:`~pyrogram.enums.PollType.QUIZ` or :obj:`~pyrogram.enums.PollType.REGULAR`.
                 Defaults to :obj:`~pyrogram.enums.PollType.REGULAR`.
 
@@ -5146,56 +5155,57 @@ class Message(Object, Update):
 
             allows_revoting (``bool``, *optional*):
                 Pass True, if the poll allows to change chosen answer options.
-                Defaults to False for quizzes and to True for regular polls.
+
+            members_only (``bool``, *optional*):
+                True, if only the users that are members of the chat for more than a day will be able to vote.
+                For channel chats only.
+
+            country_codes (List of ``str``, *optional*):
+                The list of two-letter ISO 3166-1 alpha-2 codes of countries, users from which will be able to vote.
+                For channel chats only.
 
             shuffle_options (``bool``, *optional*):
                 Pass True, if the poll options must be shown in random order.
 
             allow_adding_options (``bool``, *optional*):
-                Pass True, if answer options can be added to the poll after creation, not supported for anonymous polls and quizzes.
+                Pass True, if answer options can be added to the poll after creation.
 
             hide_results_until_closes (``bool``, *optional*):
                 Pass True, if poll results must be shown only after the poll closes.
 
             correct_option_ids (List of ``int``, *optional*):
-                List of monotonically increasing 0-based identifiers of the correct answer options, required for polls in quiz mode.
+                List of 0-based identifiers of the correct answer options, required for polls in quiz mode.
+
+            correct_option_id (``int``, *optional*):
+                0-based identifier of the correct answer option for single-answer quizzes.
+                Alternative to ``correct_option_ids``.
 
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
-                Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
+                Text shown when a user chooses an incorrect answer in a quiz-style poll.
 
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
-                Can't be used together with *close_date*.
 
             close_date (:py:obj:`~datetime.datetime`, *optional*):
                 Point in time when the poll will be automatically closed.
-                Must be at least 5 and no more than 2628000 seconds in the future.
-                Can't be used together with *open_period*.
 
             is_closed (``bool``, *optional*):
                 Pass True, if the poll needs to be immediately closed.
-                This can be useful for poll preview.
-                For bots only.
 
             description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Description of the poll to be sent, 0-1024 characters after entities parsing.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
-                Users will receive a notification with no sound.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
 
             allow_paid_broadcast (``bool``, *optional*):
                 If True, you will be allowed to send up to 1000 messages per second.
-                Ignoring broadcasting limits for a fee of 0.1 Telegram Stars per message.
-                The relevant Stars will be withdrawn from the bot's balance.
-                For bots only.
 
             effect_id (``int``, *optional*):
-                Unique identifier of the message effect.
-                For private chats only.
+                Unique identifier of the message effect. For private chats only.
 
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
@@ -5210,8 +5220,7 @@ class Message(Object, Update):
                 The number of Telegram Stars the user agreed to pay to send the messages.
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardRemove` | :obj:`~pyrogram.types.ForceReply`, *optional*):
-                Additional interface options. An object for an inline keyboard, custom reply keyboard,
-                instructions to remove reply keyboard or to force a reply from the user.
+                Additional interface options.
 
         Returns:
             On success, the sent :obj:`~pyrogram.types.Message` is returned.
@@ -5231,16 +5240,20 @@ class Message(Object, Update):
             chat_id=self.chat.id,
             question=question,
             options=options,
+            media=media,
             message_thread_id=message_thread_id,
             business_connection_id=business_connection_id,
             is_anonymous=is_anonymous,
             type=type,
             allows_multiple_answers=allows_multiple_answers,
             allows_revoting=allows_revoting,
+            members_only=members_only,
+            country_codes=country_codes,
             shuffle_options=shuffle_options,
             allow_adding_options=allow_adding_options,
             hide_results_until_closes=hide_results_until_closes,
             correct_option_ids=correct_option_ids,
+            correct_option_id=correct_option_id,
             explanation=explanation,
             open_period=open_period,
             close_date=close_date,
@@ -5256,21 +5269,29 @@ class Message(Object, Update):
             paid_message_star_count=paid_message_star_count,
             reply_markup=reply_markup,
         )
-
     async def answer_poll(
         self,
-        question: "types.FormattedText",
-        options: List["types.FormattedText"],
+        question: Union[str, "types.FormattedText"],
+        options: List[Union[str, "types.InputPollOption"]],
+        media: Optional[Union[
+            "types.InputMediaPhoto",
+            "types.InputMediaVideo",
+            "types.InputMediaSticker",
+            "types.Location",
+        ]] = None,
         message_thread_id: Optional[int] = None,
         business_connection_id: Optional[str] = None,
         is_anonymous: bool = True,
         type: "enums.PollType" = enums.PollType.REGULAR,
         allows_multiple_answers: Optional[bool] = None,
         allows_revoting: Optional[bool] = None,
+        members_only: Optional[bool] = None,
+        country_codes: Optional[List[str]] = None,
         shuffle_options: Optional[bool] = None,
         allow_adding_options: Optional[bool] = None,
         hide_results_until_closes: Optional[bool] = None,
         correct_option_ids: Optional[List[int]] = None,
+        correct_option_id: Optional[int] = None,
         explanation: Optional["types.FormattedText"] = None,
         open_period: Optional[int] = None,
         close_date: Optional[datetime] = None,
@@ -5302,15 +5323,19 @@ class Message(Object, Update):
         Example:
             .. code-block:: python
 
-                await message.reply_poll("This is a poll", ["A", "B", "C"])
+                await message.answer_poll("This is a poll", ["A", "B", "C"])
 
         Parameters:
             question (``str`` | :obj:`~pyrogram.types.FormattedText`):
                 Poll question, 1-255 characters (up to 300 characters for bots).
                 Only custom emoji entities are allowed to be added and only by Premium users.
 
-            options (List of ``str`` | List of :obj:`~pyrogram.types.FormattedText`):
-                List of 2-12 answer options, each 1-100 characters.
+            options (List of ``str`` | List of :obj:`~pyrogram.types.InputPollOption`):
+                List of 1-12 answer options.
+
+            media (:obj:`~pyrogram.types.InputMediaPhoto` | :obj:`~pyrogram.types.InputMediaVideo` | :obj:`~pyrogram.types.InputMediaSticker` | :obj:`~pyrogram.types.Location`, *optional*):
+                Media attached to the poll.
+                Currently supports only photo, video, sticker or location.
 
             message_thread_id (``int``, *optional*):
                 Unique identifier for the target message thread (topic) of the forum.
@@ -5323,66 +5348,66 @@ class Message(Object, Update):
                 True, if the poll needs to be anonymous.
                 Defaults to True.
 
-            type (:obj`~pyrogram.enums.PollType`, *optional*):
+            type (:obj:`~pyrogram.enums.PollType`, *optional*):
                 Poll type, :obj:`~pyrogram.enums.PollType.QUIZ` or :obj:`~pyrogram.enums.PollType.REGULAR`.
                 Defaults to :obj:`~pyrogram.enums.PollType.REGULAR`.
 
             allows_multiple_answers (``bool``, *optional*):
                 Pass True, if the poll allows multiple answers.
-                Defaults to False.
 
             allows_revoting (``bool``, *optional*):
                 Pass True, if the poll allows to change chosen answer options.
-                Defaults to False for quizzes and to True for regular polls.
+
+            members_only (``bool``, *optional*):
+                True, if only the users that are members of the chat for more than a day will be able to vote.
+                For channel chats only.
+
+            country_codes (List of ``str``, *optional*):
+                The list of two-letter ISO 3166-1 alpha-2 codes of countries, users from which will be able to vote.
+                For channel chats only.
 
             shuffle_options (``bool``, *optional*):
                 Pass True, if the poll options must be shown in random order.
 
             allow_adding_options (``bool``, *optional*):
-                Pass True, if answer options can be added to the poll after creation, not supported for anonymous polls and quizzes.
+                Pass True, if answer options can be added to the poll after creation.
 
             hide_results_until_closes (``bool``, *optional*):
                 Pass True, if poll results must be shown only after the poll closes.
 
             correct_option_ids (List of ``int``, *optional*):
-                List of monotonically increasing 0-based identifiers of the correct answer options, required for polls in quiz mode.
+                List of 0-based identifiers of the correct answer options, required for polls in quiz mode.
+
+            correct_option_id (``int``, *optional*):
+                0-based identifier of the correct answer option for single-answer quizzes.
+                Alternative to ``correct_option_ids``.
 
             explanation (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
-                Text that is shown when a user chooses an incorrect answer or taps on the lamp icon in a quiz-style poll, 0-200 characters with at most 2 line feeds after entities parsing.
+                Text shown when a user chooses an incorrect answer in a quiz-style poll.
 
             open_period (``int``, *optional*):
                 Amount of time in seconds the poll will be active after creation, 5-2628000.
-                Can't be used together with *close_date*.
 
             close_date (:py:obj:`~datetime.datetime`, *optional*):
                 Point in time when the poll will be automatically closed.
-                Must be at least 5 and no more than 2628000 seconds in the future.
-                Can't be used together with *open_period*.
 
             is_closed (``bool``, *optional*):
                 Pass True, if the poll needs to be immediately closed.
-                This can be useful for poll preview.
-                For bots only.
 
             description (``str`` | :obj:`~pyrogram.types.FormattedText`, *optional*):
                 Description of the poll to be sent, 0-1024 characters after entities parsing.
 
             disable_notification (``bool``, *optional*):
                 Sends the message silently.
-                Users will receive a notification with no sound.
 
             protect_content (``bool``, *optional*):
                 Protects the contents of the sent message from forwarding and saving.
 
             allow_paid_broadcast (``bool``, *optional*):
                 If True, you will be allowed to send up to 1000 messages per second.
-                Ignoring broadcasting limits for a fee of 0.1 Telegram Stars per message.
-                The relevant Stars will be withdrawn from the bot's balance.
-                For bots only.
 
             effect_id (``int``, *optional*):
-                Unique identifier of the message effect.
-                For private chats only.
+                Unique identifier of the message effect. For private chats only.
 
             reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
                 Describes reply parameters for the message that is being sent.
@@ -5397,8 +5422,7 @@ class Message(Object, Update):
                 The number of Telegram Stars the user agreed to pay to send the messages.
 
             reply_markup (:obj:`~pyrogram.types.InlineKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardMarkup` | :obj:`~pyrogram.types.ReplyKeyboardRemove` | :obj:`~pyrogram.types.ForceReply`, *optional*):
-                Additional interface options. An object for an inline keyboard, custom reply keyboard,
-                instructions to remove reply keyboard or to force a reply from the user.
+                Additional interface options.
 
         Returns:
             On success, the sent :obj:`~pyrogram.types.Message` is returned.
@@ -5413,16 +5437,20 @@ class Message(Object, Update):
             chat_id=self.chat.id,
             question=question,
             options=options,
+            media=media,
             message_thread_id=message_thread_id,
             business_connection_id=business_connection_id,
             is_anonymous=is_anonymous,
             type=type,
             allows_multiple_answers=allows_multiple_answers,
             allows_revoting=allows_revoting,
+            members_only=members_only,
+            country_codes=country_codes,
             shuffle_options=shuffle_options,
             allow_adding_options=allow_adding_options,
             hide_results_until_closes=hide_results_until_closes,
             correct_option_ids=correct_option_ids,
+            correct_option_id=correct_option_id,
             explanation=explanation,
             open_period=open_period,
             close_date=close_date,
