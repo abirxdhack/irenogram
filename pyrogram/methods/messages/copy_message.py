@@ -19,8 +19,11 @@ class CopyMessage:
         caption_entities: List["types.MessageEntity"] = None,
         disable_notification: bool = None,
         message_thread_id: int = None,
+        reply_parameters: Optional["types.ReplyParameters"] = None,
         reply_to_message_id: int = None,
         reply_to_chat_id: Union[int, str] = None,
+        quote_text: str = None,
+        quote_entities: List["types.MessageEntity"] = None,
         schedule_date: datetime = None,
         protect_content: bool = None,
         has_spoiler: bool = None,
@@ -76,11 +79,22 @@ class CopyMessage:
                 Unique identifier for the target message thread (topic) of the forum.
                 For supergroups only.
 
+            reply_parameters (:obj:`~pyrogram.types.ReplyParameters`, *optional*):
+                Describes reply parameters for the message that is being sent.
+
             reply_to_message_id (``int``, *optional*):
                 If the message is a reply, ID of the original message.
 
             reply_to_chat_id (``int``, *optional*):
                 If the message is a reply, ID of the original chat.
+
+            quote_text (``str``, *optional*):
+                Text to quote.
+                for reply_to_message only.
+
+            quote_entities (List of :obj:`~pyrogram.types.MessageEntity`, *optional*):
+                List of special entities that appear in quote_text, which can be specified instead of *parse_mode*.
+                for reply_to_message only.
 
             schedule_date (:py:obj:`~datetime.datetime`, *optional*):
                 Date when the message will be automatically sent.
@@ -129,8 +143,11 @@ class CopyMessage:
             caption_entities=caption_entities,
             disable_notification=disable_notification,
             message_thread_id=message_thread_id,
+            reply_parameters=reply_parameters,
             reply_to_message_id=reply_to_message_id,
             reply_to_chat_id=reply_to_chat_id,
+            quote_text=quote_text,
+            quote_entities=quote_entities,
             schedule_date=schedule_date,
             protect_content=protect_content,
             has_spoiler=has_spoiler,
