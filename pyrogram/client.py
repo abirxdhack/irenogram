@@ -1069,13 +1069,10 @@ class Client(Methods):
                 file.close()
                 os.remove(temp_file_path)
 
-            if isinstance(e, asyncio.CancelledError):
-                raise e
+            if isinstance(e, pyrogram.StopTransmission):
+                return None
 
-            if isinstance(e, (FloodWait, FloodPremiumWait)):
-                raise e
-
-            return None
+            raise e
         else:
             if in_memory:
                 file.name = file_name
