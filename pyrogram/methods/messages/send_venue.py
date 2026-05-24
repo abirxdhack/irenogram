@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import List, Union, Optional
 
@@ -14,8 +13,8 @@ class SendVenue:
         longitude: float,
         title: str,
         address: str,
-        foursquare_id: str = "",
-        foursquare_type: str = "",
+        foursquare_id: Optional[str] = None,
+        foursquare_type: Optional[str] = None,
         google_place_id: str = "",
         google_place_type: str = "",
         disable_notification: bool = None,
@@ -148,8 +147,8 @@ class SendVenue:
                 title=title,
                 address=address,
                 provider="",
-                venue_id=foursquare_id,
-                venue_type=foursquare_type
+                venue_id=foursquare_id or "",
+                venue_type=foursquare_type or ""
             ),
             message="",
             silent=disable_notification or None,
