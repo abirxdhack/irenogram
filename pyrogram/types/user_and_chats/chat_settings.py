@@ -1,3 +1,4 @@
+
 from typing import Optional, TYPE_CHECKING
 from ..object import Object
 
@@ -121,35 +122,22 @@ class ChatSettings(Object):
         self.name_change_date = name_change_date
         self.photo_change_date = photo_change_date
 
-    @classmethod
-    def _parse(cls, client_or_result, raw_settings=None, users=None) -> "ChatSettings":
-        """Map raw PeerSettings or messages.PeerSettings → ChatSettings.
+    @staticmethod
+    def _parse(
+        client: "pyrogram.Client" = None,
+        chat_settings: "raw.types.PeerSettings" = None,
+        users: Optional[dict] = None,
+    ) -> Optional["ChatSettings"]:
+        """Map a raw :obj:`raw.types.PeerSettings` object to a :obj:`ChatSettings`.
 
-        Handles two internal call patterns:
-
-        Pattern 1 — called from get_chat_settings with a wrapped result::
-
-            ChatSettings._parse(result)
-
-        where ``result`` is ``raw.types.messages.PeerSettings`` which carries
-        a ``.settings`` attribute of type ``raw.types.PeerSettings``.
-
-        Pattern 2 — called from Chat._parse_full_user / User._parse_full with
-        a bare PeerSettings object pulled off a UserFull::
-
-            ChatSettings._parse(client, user.settings, users)
-
-        where the second positional argument is already the raw
-        ``raw.types.PeerSettings`` object and ``users`` is a mapping of user
-        ids to raw user objects (currently unused but accepted for forward
-        compatibility).
+        Returns ``None`` when *chat_settings* is ``None`` / falsy so callers can safely
+        assign the result without extra guards.
         """
-        if raw_settings is None:
-            s = client_or_result.settings
-        else:
-            s = raw_settings
+        if not chat_settings:
+            return None
 
-        return cls(
+        s = chat_settings
+        return ChatSettings(
             report_spam=bool(getattr(s, "report_spam", False)),
             add_contact=bool(getattr(s, "add_contact", False)),
             block_contact=bool(getattr(s, "block_contact", False)),
