@@ -31,7 +31,6 @@ from .invite_link_importer import InviteLinkImporter
 from .restriction import Restriction
 from .user import User
 from .username import Username
-from .forum_topic import ForumTopic
 from .forum_topic_created import ForumTopicCreated
 from .forum_topic_closed import ForumTopicClosed
 from .forum_topic_deleted import ForumTopicDeleted
@@ -87,7 +86,6 @@ __all__ = [
     "InviteLinkImporter",
     "ChatAdminWithInviteLinks",
     "ChatColor",
-    "ForumTopic",
     "ForumTopicCreated",
     "ForumTopicClosed",
     "ForumTopicDeleted",
