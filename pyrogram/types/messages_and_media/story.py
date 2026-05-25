@@ -203,9 +203,13 @@ class Story(Object, Update):
         client: "pyrogram.Client",
         story: "raw.types.StoryItem",
         peer: "raw.base.Peer",
-        users: Dict[int, "raw.base.User"],
-        chats: Dict[int, "raw.base.Chat"],
+        users: Dict[int, "raw.base.User"] = None,
+        chats: Dict[int, "raw.base.Chat"] = None,
     ) -> "Story":
+        if users is None:
+            users = {}
+        if chats is None:
+            chats = {}
         if isinstance(peer, raw.types.InputPeerSelf):
             if client.me:
                 peer_id = client.me.id
