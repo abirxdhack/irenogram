@@ -61,12 +61,16 @@ class GetForumTopicsByID:
 
         r = await self.invoke(rpc, sleep_threshold=-1)
 
+        topic_messages = {m.id: m for m in getattr(r, "messages", []) or []}
+        topic_users = {u.id: u for u in getattr(r, "users", []) or []}
+        topic_chats = {c.id: c for c in getattr(r, "chats", []) or []}
+
         if is_iterable:
             topic_list = []
             for topic in r.topics:
-                topic_list.append(types.ForumTopic._parse(topic))
+                topic_list.append(types.ForumTopic._parse(self, topic, topic_messages, topic_users, topic_chats))
             topics = types.List(topic_list)
         else:
-            topics = types.ForumTopic._parse(r.topics[0])
+            topics = types.ForumTopic._parse(self, r.topics[0], topic_messages, topic_users, topic_chats)
 
         return topics
