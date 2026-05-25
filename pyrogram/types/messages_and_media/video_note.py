@@ -67,7 +67,8 @@ class VideoNote(Object):
     def _parse(
         client,
         video_note: "raw.types.Document",
-        video_attributes: "raw.types.DocumentAttributeVideo"
+        video_attributes: "raw.types.DocumentAttributeVideo",
+        ttl_seconds: int = None,
     ) -> "VideoNote":
         return VideoNote(
             file_id=FileId(
