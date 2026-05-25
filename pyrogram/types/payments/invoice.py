@@ -58,15 +58,18 @@ class Invoice(Object):
 
     @staticmethod
     def _parse(
-        message_invoice: "raw.types.MessageMediaInvoice"
+        client=None,
+        message_invoice: "raw.types.MessageMediaInvoice" = None,
     ) -> "Invoice":
+        if message_invoice is None:
+            return None
         return Invoice(
             title=message_invoice.title,
             description=message_invoice.description,
             currency=message_invoice.currency,
             total_amount=message_invoice.total_amount,
-            start_parameter=message_invoice.start_param,
-            shipping_address_requested=message_invoice.shipping_address_requested,
-            test=message_invoice.test,
-            receipt_message_id=message_invoice.receipt_msg_id
+            start_parameter=getattr(message_invoice, "start_param", None),
+            shipping_address_requested=getattr(message_invoice, "shipping_address_requested", None),
+            test=getattr(message_invoice, "test", None),
+            receipt_message_id=getattr(message_invoice, "receipt_msg_id", None),
         )
