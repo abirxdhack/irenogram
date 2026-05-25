@@ -111,7 +111,7 @@ class Folder(Object):
         pinned_chats = []
         title = folder.title
         title_text = title.text
-        title_entities = [types.MessageEntity._parse(client, entity) for entity in title.entities] if title.entities else None
+        title_entities = [types.MessageEntity._parse(client, entity, users) for entity in title.entities] if title.entities else None
 
         for peer in folder.include_peers:
             try:
