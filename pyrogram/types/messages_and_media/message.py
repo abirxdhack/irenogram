@@ -1158,7 +1158,7 @@ class Message(Object, Update):
             video_chat_members_invited = types.VideoChatMembersInvited._parse(client, action, users)
         elif isinstance(action, (raw.types.MessageActionPaymentSent, raw.types.MessageActionPaymentSentMe)):
             service_type = enums.MessageServiceType.SUCCESSFUL_PAYMENT
-            successful_payment = types.SuccessfulPayment._parse(action)
+            successful_payment = types.SuccessfulPayment._parse(client, action)
         elif isinstance(action, raw.types.MessageActionPaymentRefunded):
             service_type = enums.MessageServiceType.REFUNDED_PAYMENT
             refunded_payment = types.RefundedPayment._parse(action)
@@ -1489,7 +1489,7 @@ class Message(Object, Update):
                 media_type = enums.MessageMediaType.PHOTO
                 has_media_spoiler = media.spoiler
             elif isinstance(media, raw.types.MessageMediaGeo):
-                location = types.Location._parse(media.geo)
+                location = types.Location._parse(client, media.geo)
                 media_type = enums.MessageMediaType.LOCATION
             elif isinstance(media, raw.types.MessageMediaGeoLive):
                 location = types.Location._parse_media(media)
