@@ -62,7 +62,7 @@ class AddChatMembers:
 
                 missing_invitees.extend(
                     [
-                        types.FailedToAddMember._parse(self, x)
+                        types.FailedToAddMember._parse(x)
                         for x in getattr(r, "missing_invitees", [])
                     ]
                 )
@@ -76,7 +76,7 @@ class AddChatMembers:
 
             missing_invitees.extend(
                 [
-                    types.FailedToAddMember._parse(self, x)
+                    types.FailedToAddMember._parse(x)
                     for x in getattr(r, "missing_invitees", [])
                 ]
             )
