@@ -39,4 +39,6 @@ class GetChatSettings:
             raw.functions.messages.GetPeerSettings(peer=peer)
         )
 
-        return types.ChatSettings._parse(result)
+        users = {u.id: u for u in getattr(result, "users", []) or []}
+
+        return types.ChatSettings._parse(self, result.settings, users)
