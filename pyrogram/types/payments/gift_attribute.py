@@ -100,8 +100,11 @@ class GiftAttribute(Object):
     async def _parse(
         client,
         attr: "raw.base.StarGiftAttribute",
-        users: Dict[int, "raw.types.User"]
+        users: Dict[int, "raw.types.User"] = None,
+        chats: Dict[int, "raw.types.Chat"] = None,
     ) -> "GiftAttribute":
+        if users is None:
+            users = {}
         caption = None
         caption_entities = None
         sticker = None
