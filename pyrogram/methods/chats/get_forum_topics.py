@@ -58,5 +58,9 @@ class GetForumTopics:
 
         r = await self.invoke(rpc, sleep_threshold=-1)
 
+        topic_messages = {m.id: m for m in getattr(r, "messages", []) or []}
+        topic_users = {u.id: u for u in getattr(r, "users", []) or []}
+        topic_chats = {c.id: c for c in getattr(r, "chats", []) or []}
+
         for _topic in r.topics:
-            yield types.ForumTopic._parse(_topic)
+            yield types.ForumTopic._parse(self, _topic, topic_messages, topic_users, topic_chats)
