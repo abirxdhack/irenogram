@@ -1,6 +1,5 @@
-
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import pyrogram
 from pyrogram import raw, utils
@@ -106,11 +105,12 @@ class Animation(Object):
     @staticmethod
     def _parse_chat_animation(
         client,
-        video: "raw.types.Photo"
-    ) -> "Animation":
+        video: "raw.types.Photo",
+        file_name: str
+    ) -> Optional["Animation"]:
         if isinstance(video, raw.types.Photo):
             if not video.video_sizes:
-                return
+                return None
             video_sizes: List[raw.types.VideoSize] = []
             for p in video.video_sizes:
                 if isinstance(p, raw.types.VideoSize):
@@ -139,7 +139,7 @@ class Animation(Object):
                 height=video_size.h,
                 file_size=video_size.size,
                 date=utils.timestamp_to_datetime(video.date) if video else None,
-                file_name=f"chat_video_{video.date}_{client.rnd_id()}.mp4",
+                file_name=file_name,
                 mime_type="video/mp4",
                 client=client
             )
