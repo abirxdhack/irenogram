@@ -1,6 +1,5 @@
-
 import logging
-from typing import List, Union
+from typing import List, Optional, Union
 
 import pyrogram
 from pyrogram import raw, types
@@ -16,6 +15,9 @@ class CreateInvoiceLink:
         currency: str,
         prices: Union["types.LabeledPrice", List["types.LabeledPrice"]],
         provider_token: str = None,
+        subscription_period: Optional[int] = None,
+        max_tip_amount: Optional[int] = None,
+        suggested_tip_amounts: Optional[List[int]] = None,
         start_parameter: str = None,
         provider_data: str = None,
         photo_url: str = None,
@@ -47,7 +49,6 @@ class CreateInvoiceLink:
             currency (``str``):
                 Three-letter ISO 4217 currency code, see `more on currencies <https://core.telegram.org/bots/payments>`_.
 
-            
             prices (:obj:`~pyrogram.types.LabeledPrice` | List of :obj:`~pyrogram.types.LabeledPrice`):
                 Price breakdown, a JSON-serialized list of components (e.g. product price, tax, discount, delivery cost, delivery tax, bonus, etc.). Must contain exactly one item for payments in `Telegram Stars <https://t.me/BotNews/90>`_.
                 If you add multiple prices, the prices will be added up.
@@ -55,6 +56,17 @@ class CreateInvoiceLink:
 
             provider_token (``str``, *optional*):
                 Payment provider token, obtained via `@BotFather <https://t.me/botfather>`_. Pass an empty string for payments in `Telegram Stars <https://t.me/BotNews/90>`_.
+
+            subscription_period (``int``, *optional*):
+                The number of seconds the subscription will be active for before the next payment.
+                The currency must be set to "XTR" (Telegram Stars) if the parameter is used.
+                Currently, it must always be 2592000 (30 days) if specified.
+
+            max_tip_amount (``int``, *optional*):
+                The maximum accepted amount for tips in the smallest units of the currency (integer, not float/double). For example, for a maximum tip of US$ 1.45 pass max_tip_amount = 145.
+
+            suggested_tip_amounts (List of ``int``, *optional*):
+                A vector of suggested amounts of tips in the smallest units of the currency. At most 4 suggested tip amounts can be specified.
 
             start_parameter (``str``, *optional*):
                 Unique deep-linking parameter. If left empty, **forwarded copies** of the sent message will have a Pay button, allowing multiple users to pay directly from the forwarded message, using the same invoice. If non-empty, forwarded copies of the sent message will have a URL button with a deep link to the bot (instead of a Pay button), with the value used as the start parameter.
@@ -127,7 +139,10 @@ class CreateInvoiceLink:
                     shipping_address_requested=need_shipping_address,
                     flexible=is_flexible,
                     phone_to_provider=send_phone_number_to_provider,
-                    email_to_provider=send_email_to_provider
+                    email_to_provider=send_email_to_provider,
+                    max_tip_amount=max_tip_amount,
+                    suggested_tip_amounts=suggested_tip_amounts,
+                    subscription_period=subscription_period
                 ),
                 payload=payload.encode() if isinstance(payload, str) else payload,
                 provider=provider_token,
