@@ -1,4 +1,3 @@
-
 import pyrogram
 
 from datetime import datetime
@@ -35,9 +34,6 @@ class Giveaway(Object):
         allowed_countries (List of ``str``, *optional*):
             List of ISO country codes which eligible to join the giveaway.
 
-        private_channel_ids (List of ``int``, *optional*):
-            List of Unique channel identifier of private channel which host the giveaway.
-
         is_winners_hidden (``bool``):
             True, if the giveaway winners are hidden.
     """
@@ -49,7 +45,7 @@ class Giveaway(Object):
         chats: List["types.Chat"],
         quantity: int,
         expire_date: datetime,
-        new_subscribers : bool,
+        new_subscribers: bool,
         months: int = None,
         stars: int = None,
         additional_price: str = None,
@@ -69,16 +65,15 @@ class Giveaway(Object):
         self.is_winners_hidden = is_winners_hidden
 
     @staticmethod
-    async def _parse(
+    def _parse(
         client,
-        message: "raw.types.Message",
+        giveaway: "raw.types.MessageMediaGiveaway",
         chats: Dict[int, "raw.types.Chat"] = None
     ) -> "Giveaway":
-        giveaway: "raw.types.MessageMediaGiveaway" = message.media
-        chats = types.List([types.Chat._parse_channel_chat(client, chats.get(i)) for i in giveaway.channels])
+        parsed_chats = types.List([types.Chat._parse_channel_chat(client, chats.get(i)) for i in giveaway.channels])
 
         return Giveaway(
-            chats=chats,
+            chats=parsed_chats,
             quantity=giveaway.quantity,
             months=giveaway.months,
             stars=giveaway.stars,
