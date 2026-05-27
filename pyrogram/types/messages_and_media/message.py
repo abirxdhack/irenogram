@@ -1158,7 +1158,7 @@ class Message(Object, Update):
             video_chat_members_invited = types.VideoChatMembersInvited._parse(client, action, users)
         elif isinstance(action, (raw.types.MessageActionPaymentSent, raw.types.MessageActionPaymentSentMe)):
             service_type = enums.MessageServiceType.SUCCESSFUL_PAYMENT
-            successful_payment = types.SuccessfulPayment._parse(client, action)
+            successful_payment = types.SuccessfulPayment._parse(action)
         elif isinstance(action, raw.types.MessageActionPaymentRefunded):
             service_type = enums.MessageServiceType.REFUNDED_PAYMENT
             refunded_payment = types.RefundedPayment._parse(action)
@@ -1814,7 +1814,7 @@ class Message(Object, Update):
                     reply_to_params = {"chat_id": key[0], 'message_ids': key[1]}
                 else:
                     key = (parsed_message.chat.id, parsed_message.reply_to_message_id)
-                    reply_to_params = {'chat_id': key[0], 'message_ids': message.id, 'reply': True}
+                    reply_to_params = {'chat_id': key[0], 'reply_to_message_ids': message.reply_to.reply_to_msg_id}
 
                 parsed_message.reply_to_message = client.message_cache[key]
 
